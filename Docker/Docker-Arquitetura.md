@@ -38,4 +38,4 @@ O docker é o gerente da cozinha. Ele gerencia imagens (baixa se nao tiver). red
 
 ```
 
-O `Dockerd` e o cerebro do Docker. Ele gerencia imagens (baixa se nao tiver), redes, volumes e politica de reinicio dos containers. Mas ele mesmo nao cria o container - Manda o containerd fazer isso via gRPC.  
+O `Dockerd` e o cerebro do Docker. Ele gerencia imagens (baixa se nao tiver), redes, volumes e politica de reinicio dos containers. Mas ele mesmo nao cria o container - Manda o containerd fazer isso via gRPC.a  
