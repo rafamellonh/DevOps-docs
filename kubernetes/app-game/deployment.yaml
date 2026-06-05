@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name : network-game
+  labels:
+    app: network-game
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: network-game
+  template:
+    metadata:
+      labels:
+        app: network-game
+    spec:
+      containers: 
+        - name: network-game
+          image: rafamellonh/network-game:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+          
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: network-game
+spec:
+  selector:
+    app: network-game
+  ports:
+    - port: 80
+      targetPort: 80
+  type: CluesrIP
+
+    

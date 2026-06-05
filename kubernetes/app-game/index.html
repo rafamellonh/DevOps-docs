@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cat5e Roulette</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#070c12;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Share Tech Mono',monospace}
+#wrap{background:#111820;border-radius:12px;padding:22px;width:660px;max-width:98vw;user-select:none;position:relative}
+#hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-size:13px;color:#7a9ab0}
+.val{color:#2266bb;font-size:16px;font-weight:500}
+#mission{background:#0d1220;border:1px solid #1a2a3a;border-left:3px solid #2266bb;border-radius:6px;padding:9px 14px;margin-bottom:16px;font-size:12px;color:#6a8ab0}
+#mission b{color:#4488dd;font-weight:normal}
+#sw{background:#1a2535;border:2px solid #2a3a4a;border-radius:8px;padding:18px 20px}
+#swtop{display:flex;align-items:center;margin-bottom:16px}
+#swlbl{font-size:11px;color:#4a6070;letter-spacing:1px}
+#swpwr{width:9px;height:9px;border-radius:50%;background:#00e5a0;box-shadow:0 0 7px #00e5a0;margin-left:auto;transition:background .4s,box-shadow .4s}
+#swpwr.dead{background:#ff4455;box-shadow:0 0 7px #ff4455}
+.row{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-bottom:6px}
+.port{height:42px;background:#090e14;border:1px solid #1e2d3d;border-radius:3px;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:5px;transition:border-color .15s,transform .12s}
+.port:hover:not(.off){border-color:#3a6080;transform:translateY(-3px)}
+.port.pull{border-color:#aaaaaa;background:#131a25;transform:translateY(-6px)}
+.port.off{border-color:#1a2030;cursor:default;transform:none}
+.port.boom{border-color:#ff4455;background:#1a0808;animation:er .12s 4}
+@keyframes er{0%{background:#1a0808}50%{background:#3a0a0a}100%{background:#1a0808}}
+.stub{position:absolute;top:-11px;left:50%;transform:translateX(-50%);width:5px;height:13px;border-radius:2px 2px 0 0;background:#2266bb;transition:height .2s}
+.port.off .stub{height:0}
+.led{width:6px;height:6px;border-radius:50%;background:#2266bb;box-shadow:0 0 5px #2266bb;transition:all .2s}
+.port.off .led{background:#111820;box-shadow:none}
+#counter{margin-top:14px;text-align:center;font-size:12px;color:#3a5060}
+#counter span{color:#2266bb}
+#hand{position:absolute;font-size:28px;pointer-events:none;z-index:20;transform:translate(-50%,-50%);transition:left .28s cubic-bezier(.4,0,.2,1),top .28s cubic-bezier(.4,0,.2,1)}
+#ov{display:none;position:absolute;inset:0;background:rgba(0,0,0,.92);border-radius:12px;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:30}
+#ov.show{display:flex}
+#ovi{font-size:60px}
+#ovt{font-size:22px;font-weight:500}
+#ovt.win{color:#2266bb}
+#ovt.lose{color:#ff4455}
+#ovs{font-size:12px;color:#7a9ab0;text-align:center;line-height:1.8;max-width:300px}
+#ovst{display:flex;gap:28px}
+.os .v{font-size:22px;font-weight:500;color:#2266bb;text-align:center}
+.os .l{font-size:10px;color:#3a5060;text-transform:uppercase;letter-spacing:1px;text-align:center}
+button{background:#2266bb;color:#fff;border:none;padding:10px 28px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:1px;text-transform:uppercase;font-family:inherit}
+button:hover{background:#3377cc}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>Pulled: <span class="val" id="rm">0</span> / 23</div>
+    <div>Score: <span class="val" id="sc">0</span></div>
+    <div>Round: <span class="val" id="rd">1</span></div>
+  </div>
+  <div id="mission">
+    <b>CAT5E ROULETTE —</b> Pull all 24 Cat5e cables. But one will take the whole network down. You don't know which one. Good luck.
+  </div>
+  <div id="sw">
+    <div id="swtop">
+      <div id="swlbl">CISCO CATALYST 2960X-24 &nbsp;|&nbsp; CORE SWITCH</div>
+      <div id="swpwr"></div>
+    </div>
+    <div class="row" id="r1"></div>
+    <div class="row" id="r2"></div>
+  </div>
+  <div id="counter">Remaining: <span id="left">24</span> cables</div>
+  <div id="hand">🫳</div>
+  <div id="ov">
+    <div id="ovi"></div>
+    <div id="ovt"></div>
+    <div id="ovs"></div>
+    <div id="ovst"></div>
+    <button onclick="startGame()">Play again</button>
+  </div>
+</div>
+<script>
+let G={ports:[],killer:0,pulled:0,score:0,round:1,running:false,busy:false};
+
+function buildPorts(){
+  const arr=[];
+  for(let i=0;i<24;i++) arr.push({id:i,pulled:false});
+  G.killer=Math.floor(Math.random()*24);
+  return arr;
+}
+
+function startGame(){
+  G={ports:buildPorts(),pulled:0,score:G.score||0,round:G.round||1,running:true,busy:false,killer:G.killer};
+  document.getElementById('rm').textContent=0;
+  document.getElementById('sc').textContent=G.score;
+  document.getElementById('rd').textContent=G.round;
+  document.getElementById('left').textContent=24;
+  document.getElementById('swpwr').className='';
+  document.getElementById('ov').className='';
+  document.getElementById('hand').textContent='🫳';
+  render();
+  mh(-200,-200);
+}
+
+function render(){
+  ['r1','r2'].forEach((id,row)=>{
+    const el=document.getElementById(id);el.innerHTML='';
+    for(let p=0;p<12;p++){
+      const idx=row*12+p;
+      const div=document.createElement('div');
+      div.className='port on';div.id='p'+idx;
+      const stub=document.createElement('div');stub.className='stub';
+      const led=document.createElement('div');led.className='led';
+      div.appendChild(stub);div.appendChild(led);
+      div.addEventListener('click',()=>click(idx));
+      el.appendChild(div);
+    }
+  });
+}
+
+function mh(x,y){
+  const h=document.getElementById('hand');
+  h.style.left=x+'px';h.style.top=y+'px';
+}
+
+function click(idx){
+  if(!G.running||G.busy)return;
+  const port=G.ports[idx];if(port.pulled)return;
+  G.busy=true;
+  const pe=document.getElementById('p'+idx);
+  pe.classList.add('pull');
+  const wr=document.getElementById('wrap').getBoundingClientRect();
+  const pr=pe.getBoundingClientRect();
+  mh(pr.left-wr.left+pr.width/2, pr.top-wr.top-8);
+
+  setTimeout(()=>{
+    pe.classList.remove('pull');
+    port.pulled=true;
+
+    if(idx===G.killer){
+      pe.classList.add('boom');
+      document.getElementById('swpwr').className='dead';
+      document.getElementById('hand').textContent='💀';
+      G.running=false;
+      setTimeout(()=>end(false, idx), 700);
+    } else {
+      pe.classList.remove('on');pe.classList.add('off');
+      G.pulled++;
+      G.score+=50+(G.pulled*10);
+      document.getElementById('rm').textContent=G.pulled;
+      document.getElementById('sc').textContent=G.score;
+      document.getElementById('left').textContent=24-G.pulled-1;
+      G.busy=false;
+      mh(-200,-200);
+      if(G.pulled>=23){
+        G.running=false;
+        setTimeout(()=>end(true, idx),300);
+      }
+    }
+  },350);
+}
+
+function end(win, lastIdx){
+  G.running=false;
+  document.getElementById('ovi').textContent=win?'🏆':'💥';
+  const t=document.getElementById('ovt');
+  t.textContent=win?'Network survived!':'NETWORK DOWN';
+  t.className=win?'win':'lose';
+
+  let msg='';
+  if(win){
+    msg='You pulled 23 cables without hitting the killer.\nPort '+(G.killer+1)+' was the live wire. Nice nerves.';
+    G.round++;
+  } else {
+    msg='Port '+(lastIdx+1)+' was the killer cable.\nOne wrong pull and the whole network went down.';
+    G.round=1;G.score=0;
+  }
+  document.getElementById('ovs').textContent=msg;
+  document.getElementById('ovst').innerHTML=
+    '<div class="os"><div class="v">'+G.score+'</div><div class="l">Score</div></div>'+
+    '<div class="os"><div class="v">'+G.pulled+'</div><div class="l">Pulled safe</div></div>'+
+    '<div class="os"><div class="v">'+G.round+'</div><div class="l">Round</div></div>';
+  if(win) G.killer=Math.floor(Math.random()*24);
+  document.getElementById('ov').className='show';
+}
+
+startGame();
+</script>
+</body>
+</html>
