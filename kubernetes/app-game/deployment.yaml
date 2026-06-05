@@ -33,11 +33,13 @@ kind: Service
 metadata:
   name: network-game
 spec:
+  type: NodePort
   selector:
     app: network-game
   ports:
     - port: 80
       targetPort: 80
-  type: CluesrIP
+      nodePort: 30080
+  
 
     
