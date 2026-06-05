@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-configuracao
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-configuracao
+  template:
+    metadata:
+      labels: 
+        app: app-configuracao
+    spec:
+      containers:
+        - name: app-configuracao
+          image: rafamellonh/app-variaveis-ambiente:latest
+          ports:
+          - containerPort: 3000
+          env: 
+          - name: APP_NAME
+            value: "Minha aplicacao kubernetes"
+          - name: APP_VERSION
+            value: "1.5"
+          - name: APP_AUTHOR
+            value: "Rafael Mello"
+
+---
+apiVersion: v1  
+kind: Service
+metadata:
+  name: app-configuracao
+spec:
+  selector:
+    app: app-configuracao
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 3000
+      name: http
+      protocol: TCP
+      nodePort: 30001
