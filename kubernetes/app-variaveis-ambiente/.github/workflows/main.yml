@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Obtendo o código
+      uses: actions/checkout@v3
+    - name: Docker Login
+      uses: docker/login-action@v3.0.0
+      with:
+        username: ${{secrets.DOCKERHUB_USER}}
+        password: ${{secrets.DOCKERHUB_PWD}}
+    - name: Construção da imagem Docker worker
+      uses: docker/build-push-action@v5.0.0
+      with: 
+        context: ./src
+        file: ./src/Dockerfile
+        push: true
+        tags: |
+          fabricioveronez/app-variaveis-ambiente:v1
+          fabricioveronez/app-variaveis-ambiente:latest  
+          kubedevio/app-variaveis-ambiente:v1
+          kubedevio/app-variaveis-ambiente:latest  
