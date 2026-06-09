@@ -1,8 +1,0 @@
-apiVersion: v1 
-kind: ConfigMap
-metadata:
-  name: app-config
-data:
-  APP_NAME: "Aplicacao"
-  APP_VERSION: "1"
-  APP_AUTHOR: "Rafael"
