@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod 
+metadata:
+  labels:
+    run: pod-emptydir
+  name: pod-emptydir
+spec:
+  containers:
+  - name: pod-emptydir
+    image: nginx
+    volumeMounts:
+    - mountPath: /mello
+      name: mello-volume-01
+    resources:
+      limits:
+        cpu: "0.5"
+        memory: 100Mi        
+      requests:
+        cpu: "0.3"
+        memory: 100Mi
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  volumes:
+  - name: mello-volume-01
+    emptyDir: 
+      sizeLimit: 128Mi
+
+

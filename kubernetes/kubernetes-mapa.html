@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kubernetes — Mapa da Arquitetura</title>
+<style>
+  :root{
+    --bg:#0a1120;
+    --bg2:#0d1526;
+    --grid:rgba(120,160,220,.045);
+    --ink:#d6deec;
+    --muted:#8092b0;
+    --faint:#5a6a86;
+    --line:#1e2a44;
+    --brand:#326ce5;
+    /* categorias */
+    --c-workload:#4f8cff;
+    --c-network:#2dd4bf;
+    --c-storage:#f5a524;
+    --c-config:#a78bfa;
+    --c-rbac:#fb7185;
+    --c-cluster:#94a3b8;
+    --c-external:#64748b;
+    /* relações */
+    --r-create:#4f8cff;
+    --r-route:#2dd4bf;
+    --r-mount:#f5a524;
+    --r-inject:#a78bfa;
+    --r-scale:#f472b6;
+    --r-run:#94a3b8;
+    --r-rbac:#fb7185;
+    --r-scope:#64748b;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:var(--sans);color:var(--ink);
+    background:
+      radial-gradient(1200px 600px at 70% -10%, rgba(50,108,229,.10), transparent 60%),
+      var(--bg);
+    overflow:hidden;-webkit-font-smoothing:antialiased;
+  }
+  /* ---------- Top bar ---------- */
+  header{
+    position:fixed;top:0;left:0;right:0;height:60px;z-index:40;
+    display:flex;align-items:center;gap:14px;padding:0 16px;
+    background:linear-gradient(180deg,rgba(10,17,32,.92),rgba(10,17,32,.72));
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .brand svg{flex:0 0 auto;filter:drop-shadow(0 0 8px rgba(50,108,229,.5))}
+  .brand h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+  .brand p{margin:0;font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .spacer{flex:1}
+  .search{position:relative}
+  .search input{
+    width:230px;max-width:40vw;background:var(--bg2);border:1px solid var(--line);
+    color:var(--ink);border-radius:9px;padding:8px 11px 8px 32px;font-size:13px;font-family:var(--sans);outline:none;
+  }
+  .search input:focus{border-color:var(--brand)}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.5}
+  .results{
+    position:absolute;top:44px;left:0;right:0;background:var(--bg2);border:1px solid var(--line);
+    border-radius:9px;overflow:hidden;display:none;max-height:280px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.5)
+  }
+  .results.show{display:block}
+  .results button{
+    display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);
+    padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line)
+  }
+  .results button:hover{background:rgba(79,140,255,.12)}
+  .results .cat{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;margin-left:6px}
+  .tool{display:flex;gap:6px}
+  .btn{
+    background:var(--bg2);border:1px solid var(--line);color:var(--ink);border-radius:8px;
+    width:34px;height:34px;display:grid;place-items:center;cursor:pointer;font-size:15px;user-select:none
+  }
+  .btn:hover{border-color:var(--brand);color:#fff}
+  .btn.wide{width:auto;padding:0 12px;font-size:12px;gap:6px}
+
+  /* ---------- Viewport / canvas ---------- */
+  #viewport{position:fixed;inset:60px 0 0 0;overflow:hidden;cursor:grab;touch-action:none}
+  #viewport.grabbing{cursor:grabbing}
+  #viewport::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  #edges{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+
+  /* zonas de fundo */
+  .zone{position:absolute;border:1px dashed rgba(148,163,184,.18);border-radius:18px;background:rgba(148,163,184,.025)}
+  .zone .zlabel{
+    position:absolute;top:-11px;left:16px;background:var(--bg);padding:0 10px;font-size:11px;
+    font-family:var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--faint)
+  }
+
+  /* ---------- Nós ---------- */
+  .node{
+    position:absolute;width:230px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:12px;padding:11px 13px;cursor:pointer;transition:transform .12s,box-shadow .2s,opacity .2s,border-color .2s;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+  }
+  .node::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--cc)}
+  .node:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(0,0,0,.5);border-color:var(--cc)}
+  .node .nhead{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .node .dot{width:9px;height:9px;border-radius:50%;background:var(--cc);flex:0 0 auto;box-shadow:0 0 8px var(--cc)}
+  .node .ntitle{font-size:13.5px;font-weight:650;line-height:1.15}
+  .node .nkind{font-size:9.5px;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:1px}
+  .node .ndesc{font-size:11px;color:var(--muted);line-height:1.35;margin-top:4px}
+  .node.dim{opacity:.18;filter:saturate(.4)}
+  .node.active{border-color:var(--cc);box-shadow:0 0 0 2px var(--cc),0 12px 30px rgba(0,0,0,.55)}
+  .node.selected{border-color:#fff;box-shadow:0 0 0 2px var(--cc),0 0 34px rgba(79,140,255,.4)}
+
+  /* edges */
+  #edges path.edge{fill:none;stroke-width:1.6;opacity:.55;transition:opacity .2s,stroke-width .2s}
+  #edges path.edge.dim{opacity:.06}
+  #edges path.edge.hi{opacity:1;stroke-width:2.6}
+  #edges .elabel{font-family:var(--mono);font-size:10px;fill:var(--ink);opacity:0;transition:opacity .2s}
+  #edges .elabel.show{opacity:.92}
+  #edges .elabel rect{fill:var(--bg);}
+
+  /* ---------- Painel de detalhe ---------- */
+  #panel{
+    position:fixed;top:60px;right:0;bottom:0;width:420px;max-width:92vw;z-index:35;
+    background:linear-gradient(180deg,var(--bg2),var(--bg));border-left:1px solid var(--line);
+    transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column;box-shadow:-20px 0 50px rgba(0,0,0,.45)
+  }
+  #panel.open{transform:translateX(0)}
+  .phead{padding:18px 20px 14px;border-bottom:1px solid var(--line);position:relative}
+  .phead .ptag{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--pc)}
+  .phead h2{margin:6px 0 3px;font-size:21px;font-weight:700}
+  .phead .papi{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .phead .pclose{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+    background:var(--bg2);color:var(--ink);cursor:pointer;font-size:16px;display:grid;place-items:center}
+  .phead .pclose:hover{border-color:var(--pc)}
+  .pbody{padding:18px 20px 40px;overflow-y:auto;flex:1}
+  .pbody h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--faint);font-family:var(--mono);margin:20px 0 9px}
+  .pbody h3:first-child{margin-top:0}
+  .pbody p{font-size:13.5px;line-height:1.6;color:var(--ink);margin:0 0 10px}
+  .pbody .lead{color:var(--ink)}
+  .fields{display:flex;flex-direction:column;gap:7px}
+  .field{display:flex;gap:10px;font-size:12.5px;line-height:1.4}
+  .field .k{font-family:var(--mono);color:var(--pc);min-width:120px;flex:0 0 auto}
+  .field .v{color:var(--muted)}
+  pre{
+    margin:0;background:#070c17;border:1px solid var(--line);border-radius:10px;padding:13px 14px;
+    overflow-x:auto;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:#c8d4ea
+  }
+  pre .ky{color:#5fb3ff}
+  pre .st{color:#7ee787}
+  pre .nm{color:#f2b866}
+  pre .cm{color:#5a6a86}
+  .rels{display:flex;flex-direction:column;gap:6px}
+  .rel{display:flex;align-items:center;gap:9px;font-size:12.5px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;cursor:pointer}
+  .rel:hover{border-color:var(--rc)}
+  .rel .rarrow{font-family:var(--mono);color:var(--rc);font-size:11px;flex:0 0 auto}
+  .rel .rname{font-weight:600}
+  .rel .rverb{color:var(--muted);font-size:11px;margin-left:auto;font-family:var(--mono)}
+
+  /* ---------- Legenda ---------- */
+  #legend{
+    position:fixed;left:16px;bottom:16px;z-index:30;background:rgba(13,21,38,.9);backdrop-filter:blur(6px);
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px;max-width:min(340px,calc(100vw - 32px));
+  }
+  #legend .lgt{font-size:10px;font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+  #legend .lgrow{display:flex;flex-wrap:wrap;gap:6px 12px}
+  #legend .lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none}
+  #legend .lg:hover{color:var(--ink)}
+  #legend .lg .sw{width:20px;height:0;border-top:2.4px solid var(--lc)}
+  #legend .lg.dashed .sw{border-top-style:dashed}
+  #legend .lg.dotted .sw{border-top-style:dotted}
+  #legend .lg .cbox{width:11px;height:11px;border-radius:3px;background:var(--lc)}
+  #legend .sep{height:1px;background:var(--line);margin:10px 0}
+  #legend.min .lbody{display:none}
+  #legend .lgt .mztoggle{float:right;cursor:pointer;color:var(--faint)}
+
+  .hint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:25;font-size:11px;color:var(--faint);
+    font-family:var(--mono);background:rgba(10,17,32,.7);padding:6px 12px;border-radius:20px;border:1px solid var(--line);pointer-events:none}
+
+  @media (max-width:640px){
+    .brand p{display:none}
+    .search input{width:150px}
+    #panel{width:100%;top:auto;bottom:0;height:74vh;border-left:0;border-top:1px solid var(--line);
+      transform:translateY(102%);border-radius:16px 16px 0 0}
+    #panel.open{transform:translateY(0)}
+    #legend{left:10px;bottom:10px;padding:9px 11px}
+    .hint{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <!-- leme / helm do kubernetes -->
+    <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="13" stroke="#326ce5" stroke-width="2"/>
+      <circle cx="16" cy="16" r="4.4" stroke="#326ce5" stroke-width="2"/>
+      <g stroke="#326ce5" stroke-width="2" stroke-linecap="round">
+        <line x1="16" y1="3" x2="16" y2="8.5"/><line x1="16" y1="23.5" x2="16" y2="29"/>
+        <line x1="3" y1="16" x2="8.5" y2="16"/><line x1="23.5" y1="16" x2="29" y2="16"/>
+        <line x1="6.8" y1="6.8" x2="10.6" y2="10.6"/><line x1="21.4" y1="21.4" x2="25.2" y2="25.2"/>
+        <line x1="25.2" y1="6.8" x2="21.4" y2="10.6"/><line x1="10.6" y1="21.4" x2="6.8" y2="25.2"/>
+      </g>
+    </svg>
+    <div>
+      <h1>Kubernetes — Mapa da Arquitetura</h1>
+      <p>workloads · rede · storage · config · rbac · cluster</p>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="search">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+    <input id="q" placeholder="Buscar objeto…" autocomplete="off">
+    <div class="results" id="results"></div>
+  </div>
+  <div class="tool">
+    <div class="btn" id="zin" title="Aproximar">+</div>
+    <div class="btn" id="zout" title="Afastar">−</div>
+    <div class="btn wide" id="fit" title="Enquadrar tudo">⤢ Enquadrar</div>
+  </div>
+</header>
+
+<div id="viewport">
+  <div id="world">
+    <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>
+    <!-- nós e zonas injetados via JS -->
+  </div>
+</div>
+
+<div class="hint">Arraste para mover · scroll para zoom · clique num objeto para os detalhes</div>
+
+<aside id="panel">
+  <div class="phead">
+    <button class="pclose" id="pclose">✕</button>
+    <div class="ptag" id="ptag">—</div>
+    <h2 id="ptitle">—</h2>
+    <div class="papi" id="papi"></div>
+  </div>
+  <div class="pbody" id="pbody"></div>
+</aside>
+
+<div id="legend">
+  <p class="lgt">Relações <span class="mztoggle" id="mztoggle">▾</span></p>
+  <div class="lbody">
+    <div class="lgrow" id="rel-legend"></div>
+    <div class="sep"></div>
+    <p class="lgt">Categorias</p>
+    <div class="lgrow" id="cat-legend"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   DADOS — objetos do Kubernetes
+   x,y = canto superior esquerdo (mundo). largura padrão 230.
+   ===================================================================== */
+const CAT = {
+  external:{label:"Externo",  color:"var(--c-external)"},
+  network: {label:"Rede",     color:"var(--c-network)"},
+  workload:{label:"Workload", color:"var(--c-workload)"},
+  storage: {label:"Storage",  color:"var(--c-storage)"},
+  config:  {label:"Config",   color:"var(--c-config)"},
+  rbac:    {label:"RBAC",     color:"var(--c-rbac)"},
+  cluster: {label:"Cluster",  color:"var(--c-cluster)"},
+};
+const REL = {
+  create:{color:"var(--r-create)",style:"solid", label:"cria / gerencia"},
+  route: {color:"var(--r-route)", style:"dashed",label:"roteia tráfego"},
+  mount: {color:"var(--r-mount)", style:"dotted",label:"provê / monta"},
+  inject:{color:"var(--r-inject)",style:"dotted",label:"injeta config"},
+  scale: {color:"var(--r-scale)", style:"dashed",label:"escala"},
+  run:   {color:"var(--r-run)",   style:"solid", label:"roda em / contém"},
+  rbac:  {color:"var(--r-rbac)",  style:"solid", label:"concede acesso"},
+  scope: {color:"var(--r-scope)", style:"dotted",label:"escopo (namespace)"},
+};
+
+const ZONES = [
+  {label:"Entrada & Rede",         x:20,  y:20,  w:600, h:640},
+  {label:"Controladores de Workload", x:680, y:20,  w:1080,h:360},
+  {label:"Execução (Pods)",        x:680, y:420, h:200, w:1080},
+  {label:"Storage",                x:1800,y:20,  w:280, h:600},
+  {label:"Config & RBAC",          x:20,  y:900, w:600, h:460},
+  {label:"Cluster: Control Plane & Nodes", x:680, y:660, w:1400, h:340},
+];
+
+const NODES = [
+  /* ---- Entrada & Rede ---- */
+  {id:"users", cat:"external", title:"Users / Clients", kind:"Tráfego externo", x:60, y:70,
+   desc:"Clientes HTTP fora do cluster. Não é objeto K8s.",
+   api:"— (externo)",
+   about:"Representa qualquer origem de tráfego externa ao cluster: browsers, apps, outras APIs. O tráfego normalmente entra por um Load Balancer da cloud e é encaminhado ao Ingress ou diretamente a um Service do tipo LoadBalancer/NodePort.",
+   fields:[["Entrada típica","LB da cloud → Ingress → Service"],["Camada","L7 (HTTP) ou L4 (TCP/UDP)"]],
+   yaml:null},
+
+  {id:"ingress", cat:"network", title:"Ingress", kind:"networking.k8s.io/v1", x:60, y:250,
+   desc:"Regras L7 de host/path → Service. Precisa de um Ingress Controller.",
+   api:"networking.k8s.io/v1 · Kind: Ingress",
+   about:"Define regras de roteamento HTTP/HTTPS baseadas em host e path, terminação TLS e reescritas. O Ingress em si é só a regra declarativa — quem realmente encaminha o tráfego é o Ingress Controller (nginx, Traefik, HAProxy, AWS ALB Controller) rodando como Pods no cluster.",
+   fields:[["rules[].host","app.example.com"],["rules[].http.paths","/ → web-service:80"],["pathType","Prefix | Exact"],["tls[]","certificado (Secret tls)"],["ingressClassName","nginx"]],
+   yaml:`<span class="ky">apiVersion:</span> networking.k8s.io/v1
+<span class="ky">kind:</span> Ingress
+<span class="ky">metadata:</span>
+  <span class="ky">name:</span> <span class="nm">app-ingress</span>
+<span class="ky">spec:</span>
+  <span class="ky">ingressClassName:</span> nginx
+  <span class="ky">rules:</span>
+  - <span class="ky">host:</span> app.example.com
+    <span class="ky">http:</span>
+      <span class="ky">paths:</span>
+      - <span class="ky">path:</span> /
+        <span class="ky">pathType:</span> Prefix
+        <span class="ky">backend:</span>
+          <span class="ky">service:</span>
+            <span class="ky">name:</span> <span class="nm">web-service</span>
+            <span class="ky">port:</span> {<span class="ky">number:</span> 80}`},
+
+  {id:"service", cat:"network", title:"Service (ClusterIP)", kind:"v1 · Service", x:60, y:440,
+   desc:"IP virtual estável que balanceia entre os Pods de um selector.",
+   api:"v1 · Kind: Service",
+   about:"Dá um endereço e nome DNS estáveis a um conjunto de Pods efêmeros. Seleciona Pods por labels e faz load-balancing L4 (via kube-proxy). O EndpointSlice mantém a lista de Pods prontos por trás dele.",
+   fields:[["type","ClusterIP (padrão)"],["outros tipos","NodePort · LoadBalancer · ExternalName"],["Headless","clusterIP: None (DNS por Pod, p/ StatefulSet)"],["selector","app: web"],["port / targetPort","80 → 8080"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> Service
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">web-service</span>}
+<span class="ky">spec:</span>
+  <span class="ky">type:</span> ClusterIP
+  <span class="ky">selector:</span> {<span class="ky">app:</span> web}
+  <span class="ky">ports:</span>
+  - <span class="ky">port:</span> 80
+    <span class="ky">targetPort:</span> 8080`},
+
+  {id:"endpointslice", cat:"network", title:"EndpointSlice", kind:"discovery.k8s.io/v1", x:360, y:250,
+   desc:"Lista de IP:porta dos Pods prontos que respaldam um Service.",
+   api:"discovery.k8s.io/v1 · Kind: EndpointSlice",
+   about:"Criado automaticamente pelo control plane. Mantém, em fatias, os endpoints (IP + porta + prontidão) dos Pods que casam com o selector do Service. É o que o kube-proxy consulta para montar as regras de balanceamento. Substitui o antigo objeto Endpoints em escala.",
+   fields:[["endpoints[]","10.1.2.3:8080 (ready)"],["ownerRef","Service"],["gerado por","EndpointSlice controller"]],
+   yaml:null},
+
+  {id:"networkpolicy", cat:"network", title:"NetworkPolicy", kind:"networking.k8s.io/v1", x:360, y:440,
+   desc:"Firewall L3/L4 por Pod (ingress/egress) baseado em labels.",
+   api:"networking.k8s.io/v1 · Kind: NetworkPolicy",
+   about:"Controla qual tráfego pode entrar/sair de Pods selecionados. Sem nenhuma policy, tudo é permitido; ao criar a primeira que seleciona um Pod, ele passa a negar por padrão o que não estiver liberado. Só tem efeito se o CNI suportar (Calico, Cilium, etc).",
+   fields:[["podSelector","app: web"],["policyTypes","Ingress, Egress"],["ingress.from","podSelector / namespaceSelector / ipBlock"],["requer","CNI compatível"]],
+   yaml:`<span class="ky">kind:</span> NetworkPolicy
+<span class="ky">spec:</span>
+  <span class="ky">podSelector:</span> {<span class="ky">matchLabels:</span> {app: web}}
+  <span class="ky">policyTypes:</span> [Ingress]
+  <span class="ky">ingress:</span>
+  - <span class="ky">from:</span>
+    - <span class="ky">podSelector:</span> {<span class="ky">matchLabels:</span> {role: front}}`},
+
+  /* ---- Controladores ---- */
+  {id:"deployment", cat:"workload", title:"Deployment", kind:"apps/v1 · Deployment", x:720, y:70,
+   desc:"Gerencia ReplicaSets: rollout/rollback declarativo de apps stateless.",
+   api:"apps/v1 · Kind: Deployment",
+   about:"O controlador mais usado para apps sem estado. Você declara o estado desejado (imagem, réplicas) e ele cria/atualiza ReplicaSets para chegar lá — com rollout gradual (RollingUpdate) e rollback via histórico de revisões.",
+   fields:[["replicas","3"],["strategy","RollingUpdate (maxSurge/maxUnavailable)"],["template","spec do Pod"],["selector","app: web"],["revisionHistory","rollback por revisão"]],
+   yaml:`<span class="ky">apiVersion:</span> apps/v1
+<span class="ky">kind:</span> Deployment
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">web-app</span>}
+<span class="ky">spec:</span>
+  <span class="ky">replicas:</span> 3
+  <span class="ky">selector:</span> {<span class="ky">matchLabels:</span> {app: web}}
+  <span class="ky">strategy:</span> {<span class="ky">type:</span> RollingUpdate}
+  <span class="ky">template:</span>
+    <span class="ky">metadata:</span> {<span class="ky">labels:</span> {app: web}}
+    <span class="ky">spec:</span>
+      <span class="ky">containers:</span>
+      - <span class="ky">name:</span> <span class="nm">web</span>
+        <span class="ky">image:</span> <span class="st">nginx:1.25</span>`},
+
+  {id:"replicaset", cat:"workload", title:"ReplicaSet", kind:"apps/v1 · ReplicaSet", x:720, y:250,
+   desc:"Mantém N réplicas idênticas de um Pod. Normalmente criado pelo Deployment.",
+   api:"apps/v1 · Kind: ReplicaSet",
+   about:"Garante que exista sempre um número exato de Pods casando com seu selector — recria os que morrem, remove os que sobram. Você raramente cria um à mão: o Deployment cria e versiona ReplicaSets por você.",
+   fields:[["replicas","3"],["selector","app: web"],["template","spec do Pod"],["ownerRef","Deployment"]],
+   yaml:`<span class="ky">apiVersion:</span> apps/v1
+<span class="ky">kind:</span> ReplicaSet
+<span class="ky">spec:</span>
+  <span class="ky">replicas:</span> 3
+  <span class="ky">selector:</span> {<span class="ky">matchLabels:</span> {app: web}}
+  <span class="ky">template:</span> { <span class="cm"># spec do Pod</span> }`},
+
+  {id:"hpa", cat:"workload", title:"HorizontalPodAutoscaler", kind:"autoscaling/v2 · HPA", x:990, y:70,
+   desc:"Ajusta o nº de réplicas por métrica (CPU, memória, custom).",
+   api:"autoscaling/v2 · Kind: HorizontalPodAutoscaler",
+   about:"Observa métricas (via metrics-server ou adapter) e sobe/desce as réplicas do alvo entre min e max para manter um alvo — ex.: CPU média em 70%. Aponta para um Deployment, StatefulSet ou ReplicaSet.",
+   fields:[["scaleTargetRef","Deployment/web-app"],["minReplicas / maxReplicas","2 / 10"],["metrics","cpu: 70% utilization"],["requer","metrics-server"]],
+   yaml:`<span class="ky">apiVersion:</span> autoscaling/v2
+<span class="ky">kind:</span> HorizontalPodAutoscaler
+<span class="ky">spec:</span>
+  <span class="ky">scaleTargetRef:</span>
+    <span class="ky">kind:</span> Deployment
+    <span class="ky">name:</span> <span class="nm">web-app</span>
+  <span class="ky">minReplicas:</span> 2
+  <span class="ky">maxReplicas:</span> 10
+  <span class="ky">metrics:</span>
+  - <span class="ky">type:</span> Resource
+    <span class="ky">resource:</span> {<span class="ky">name:</span> cpu, <span class="ky">target:</span> {<span class="ky">type:</span> Utilization, <span class="ky">averageUtilization:</span> 70}}`},
+
+  {id:"statefulset", cat:"workload", title:"StatefulSet", kind:"apps/v1 · StatefulSet", x:1260, y:70,
+   desc:"Pods com identidade estável e storage próprio. Bancos, filas, clusters.",
+   api:"apps/v1 · Kind: StatefulSet",
+   about:"Como o Deployment, mas garante identidade estável: nomes ordinais (db-0, db-1…), DNS previsível via Service headless, ordem de criação/atualização e um PVC dedicado por réplica através de volumeClaimTemplates. Ideal para cargas com estado.",
+   fields:[["serviceName","db (headless)"],["replicas","3 → db-0, db-1, db-2"],["volumeClaimTemplates","1 PVC por Pod"],["podManagementPolicy","OrderedReady | Parallel"]],
+   yaml:`<span class="ky">apiVersion:</span> apps/v1
+<span class="ky">kind:</span> StatefulSet
+<span class="ky">spec:</span>
+  <span class="ky">serviceName:</span> <span class="nm">db</span>
+  <span class="ky">replicas:</span> 3
+  <span class="ky">volumeClaimTemplates:</span>
+  - <span class="ky">metadata:</span> {<span class="ky">name:</span> data}
+    <span class="ky">spec:</span>
+      <span class="ky">accessModes:</span> [ReadWriteOnce]
+      <span class="ky">resources:</span> {<span class="ky">requests:</span> {storage: 10Gi}}`},
+
+  {id:"daemonset", cat:"workload", title:"DaemonSet", kind:"apps/v1 · DaemonSet", x:1530, y:70,
+   desc:"Garante um Pod por node (ou subconjunto). Agents de infra.",
+   api:"apps/v1 · Kind: DaemonSet",
+   about:"Roda uma cópia do Pod em cada node que casa com o nodeSelector/tolerations — e adiciona automaticamente quando novos nodes entram. Uso típico: coletores de log (Fluent Bit), monitoramento (node-exporter), CNI, storage.",
+   fields:[["1 Pod por node","respeitando selector/tolerations"],["nodeSelector","opcional"],["tolerations","p/ rodar em nodes com taint"],["ex.","node-exporter, fluent-bit, cilium"]],
+   yaml:`<span class="ky">apiVersion:</span> apps/v1
+<span class="ky">kind:</span> DaemonSet
+<span class="ky">spec:</span>
+  <span class="ky">selector:</span> {<span class="ky">matchLabels:</span> {app: node-agent}}
+  <span class="ky">template:</span> { <span class="cm"># Pod em cada node</span> }`},
+
+  {id:"cronjob", cat:"workload", title:"CronJob", kind:"batch/v1 · CronJob", x:1260, y:250,
+   desc:"Agenda a criação de Jobs por expressão cron.",
+   api:"batch/v1 · Kind: CronJob",
+   about:"Cria um Job a cada disparo do schedule cron. Bom para backups, relatórios, limpeza. Controla concorrência (Allow/Forbid/Replace) e histórico de execuções.",
+   fields:[["schedule","\"0 2 * * *\" (cron)"],["jobTemplate","molde do Job"],["concurrencyPolicy","Allow | Forbid | Replace"],["successfulJobsHistoryLimit","3"]],
+   yaml:`<span class="ky">apiVersion:</span> batch/v1
+<span class="ky">kind:</span> CronJob
+<span class="ky">spec:</span>
+  <span class="ky">schedule:</span> <span class="st">"0 2 * * *"</span>
+  <span class="ky">jobTemplate:</span> { <span class="cm"># molde de um Job</span> }`},
+
+  {id:"job", cat:"workload", title:"Job", kind:"batch/v1 · Job", x:1530, y:250,
+   desc:"Executa Pods até completar N vezes. Cargas batch/finitas.",
+   api:"batch/v1 · Kind: Job",
+   about:"Roda um ou mais Pods até que um número de conclusões bem-sucedidas seja atingido; recria em caso de falha até backoffLimit. Diferente de Deployment, a tarefa termina. Pode rodar em paralelo (completions/parallelism).",
+   fields:[["completions / parallelism","5 / 2"],["backoffLimit","6"],["restartPolicy","Never | OnFailure"],["ttlSecondsAfterFinished","limpeza automática"]],
+   yaml:`<span class="ky">apiVersion:</span> batch/v1
+<span class="ky">kind:</span> Job
+<span class="ky">spec:</span>
+  <span class="ky">completions:</span> 5
+  <span class="ky">parallelism:</span> 2
+  <span class="ky">backoffLimit:</span> 6
+  <span class="ky">template:</span> { <span class="cm"># Pod da tarefa</span> }`},
+
+  /* ---- Pods ---- */
+  {id:"pod_web", cat:"workload", title:"Pod (web)", kind:"v1 · Pod", x:720, y:460,
+   desc:"Menor unidade: 1+ containers que compartilham rede e volumes.",
+   api:"v1 · Kind: Pod",
+   about:"A unidade atômica de agendamento. Um Pod agrupa um ou mais containers que compartilham o mesmo IP, namespaces (rede/IPC) e volumes. É efêmero — quando morre não volta com o mesmo IP; quem o recria é um controlador (ReplicaSet, etc). Suporta initContainers, sidecars, probes (liveness/readiness/startup) e requests/limits.",
+   fields:[["containers[]","web (nginx:1.25)"],["initContainers[]","setup antes do main"],["probes","liveness · readiness · startup"],["resources","requests / limits (cpu, mem)"],["volumes[]","emptyDir, configMap, secret, PVC…"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> Pod
+<span class="ky">spec:</span>
+  <span class="ky">containers:</span>
+  - <span class="ky">name:</span> <span class="nm">web</span>
+    <span class="ky">image:</span> <span class="st">nginx:1.25</span>
+    <span class="ky">ports:</span> [{<span class="ky">containerPort:</span> 8080}]
+    <span class="ky">resources:</span>
+      <span class="ky">requests:</span> {cpu: 100m, memory: 128Mi}
+      <span class="ky">limits:</span>   {cpu: 500m, memory: 256Mi}
+    <span class="ky">readinessProbe:</span> {<span class="ky">httpGet:</span> {path: /healthz, port: 8080}}`},
+
+  {id:"pod_db", cat:"workload", title:"Pod (db-0)", kind:"v1 · Pod", x:1260, y:460,
+   desc:"Pod com identidade estável, gerado por um StatefulSet.",
+   api:"v1 · Kind: Pod",
+   about:"Pod ordinal de um StatefulSet (db-0). Tem nome e DNS estáveis e monta um PVC dedicado que persiste mesmo se o Pod for recriado. Mesma estrutura de qualquer Pod, com a diferença da identidade e do volume persistente por réplica.",
+   fields:[["hostname estável","db-0.db.default.svc"],["volume","PVC dedicado (data-db-0)"],["ownerRef","StatefulSet"]],
+   yaml:null},
+
+  {id:"pod_agent", cat:"workload", title:"Pod (agent)", kind:"v1 · Pod", x:1530, y:460,
+   desc:"Pod de infraestrutura, um por node, gerado por um DaemonSet.",
+   api:"v1 · Kind: Pod",
+   about:"Instância de agent rodando em cada node (log, métricas, rede). Costuma montar hostPath para ler o filesystem do node e ter tolerations para rodar até em nodes de control plane.",
+   fields:[["1 por node","gerido pelo DaemonSet"],["volumes","hostPath (logs do node)"],["ownerRef","DaemonSet"]],
+   yaml:null},
+
+  {id:"volume", cat:"storage", title:"Volume (no Pod)", kind:"conceito de Pod", x:990, y:460,
+   desc:"Diretório montado nos containers. Efêmero ou persistente (via PVC).",
+   api:"Pod.spec.volumes[]",
+   about:"Um volume vive dentro da spec do Pod e é montado em caminhos dos containers. Tipos efêmeros: emptyDir (scratch, dura o Pod), configMap/secret (arquivos de config), downwardAPI, projected. hostPath expõe o disco do node. Para dados que sobrevivem ao Pod, use persistentVolumeClaim (PVC).",
+   fields:[["emptyDir","scratch temporário (vida do Pod)"],["configMap / secret","config como arquivos"],["hostPath","caminho do node (cuidado)"],["persistentVolumeClaim","persistente → PVC/PV"],["projected","combina várias fontes"]],
+   yaml:`<span class="ky">volumes:</span>
+- <span class="ky">name:</span> cache
+  <span class="ky">emptyDir:</span> {}
+- <span class="ky">name:</span> cfg
+  <span class="ky">configMap:</span> {<span class="ky">name:</span> app-config}
+- <span class="ky">name:</span> data
+  <span class="ky">persistentVolumeClaim:</span> {<span class="ky">claimName:</span> data-pvc}`},
+
+  /* ---- Storage ---- */
+  {id:"storageclass", cat:"storage", title:"StorageClass", kind:"storage.k8s.io/v1", x:1830, y:70,
+   desc:"Molde de provisionamento dinâmico: define o provisioner e parâmetros.",
+   api:"storage.k8s.io/v1 · Kind: StorageClass",
+   about:"Descreve 'classes' de storage. Quando um PVC pede uma StorageClass, o provisioner (driver CSI: EBS, Azure Disk, etc) cria o PV automaticamente com os parâmetros definidos — sem admin criar PV à mão.",
+   fields:[["provisioner","ebs.csi.aws.com / disk.csi.azure.com"],["parameters","type: gp3, iops…"],["reclaimPolicy","Delete | Retain"],["volumeBindingMode","WaitForFirstConsumer"]],
+   yaml:`<span class="ky">apiVersion:</span> storage.k8s.io/v1
+<span class="ky">kind:</span> StorageClass
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">fast</span>}
+<span class="ky">provisioner:</span> ebs.csi.aws.com
+<span class="ky">parameters:</span> {<span class="ky">type:</span> gp3}
+<span class="ky">reclaimPolicy:</span> Delete
+<span class="ky">volumeBindingMode:</span> WaitForFirstConsumer`},
+
+  {id:"pv", cat:"storage", title:"PersistentVolume", kind:"v1 · PersistentVolume", x:1830, y:250,
+   desc:"Recurso de storage real no cluster (disco EBS, NFS, etc).",
+   api:"v1 · Kind: PersistentVolume",
+   about:"Uma peça de armazenamento no cluster, provisionada manualmente por um admin ou dinamicamente por uma StorageClass. Tem ciclo de vida independente do Pod. É cluster-scoped (não pertence a namespace).",
+   fields:[["capacity","10Gi"],["accessModes","RWO / ROX / RWX"],["reclaimPolicy","Retain | Delete | Recycle"],["backend","EBS, NFS, CSI driver…"],["status","Available → Bound → Released"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> PersistentVolume
+<span class="ky">spec:</span>
+  <span class="ky">capacity:</span> {<span class="ky">storage:</span> 10Gi}
+  <span class="ky">accessModes:</span> [ReadWriteOnce]
+  <span class="ky">persistentVolumeReclaimPolicy:</span> Retain
+  <span class="ky">csi:</span> {<span class="ky">driver:</span> ebs.csi.aws.com, <span class="ky">volumeHandle:</span> vol-0abc}`},
+
+  {id:"pvc", cat:"storage", title:"PersistentVolumeClaim", kind:"v1 · PVC", x:1830, y:440,
+   desc:"Pedido de storage por um app. Faz bind a um PV e é montado no Pod.",
+   api:"v1 · Kind: PersistentVolumeClaim",
+   about:"É a requisição de storage feita pela aplicação: 'quero 10Gi RWO da classe fast'. O K8s faz o bind a um PV compatível (ou provisiona um via StorageClass). O Pod referencia o PVC — nunca o PV diretamente. É namespaced.",
+   fields:[["accessModes","ReadWriteOnce"],["resources.requests.storage","10Gi"],["storageClassName","fast"],["status","Pending → Bound"],["usado por","Pod.volumes[].persistentVolumeClaim"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> PersistentVolumeClaim
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">data-pvc</span>}
+<span class="ky">spec:</span>
+  <span class="ky">accessModes:</span> [ReadWriteOnce]
+  <span class="ky">storageClassName:</span> fast
+  <span class="ky">resources:</span> {<span class="ky">requests:</span> {storage: 10Gi}}`},
+
+  /* ---- Config & RBAC ---- */
+  {id:"configmap", cat:"config", title:"ConfigMap", kind:"v1 · ConfigMap", x:60, y:960,
+   desc:"Config não-sensível chave/valor. Injeta como env ou arquivos.",
+   api:"v1 · Kind: ConfigMap",
+   about:"Guarda configuração em texto (chave/valor ou arquivos inteiros) desacoplada da imagem. Um Pod a consome como variáveis de ambiente (envFrom/env) ou montada como arquivos num volume. Mudou o ConfigMap? Ajuste sem rebuildar a imagem.",
+   fields:[["data","LOG_LEVEL: info · app.conf: …"],["consumo","env / envFrom / volume"],["limite","~1 MiB"],["namespaced","sim"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> ConfigMap
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">app-config</span>}
+<span class="ky">data:</span>
+  <span class="ky">LOG_LEVEL:</span> info
+  <span class="ky">app.conf:</span> |
+    server.port=8080`},
+
+  {id:"secret", cat:"config", title:"Secret", kind:"v1 · Secret", x:360, y:960,
+   desc:"Dados sensíveis (senhas, tokens, TLS). Base64; injeção igual ao ConfigMap.",
+   api:"v1 · Kind: Secret",
+   about:"Como o ConfigMap, mas para dados sensíveis: senhas, tokens, chaves, certificados TLS. Armazenado em base64 (não é criptografia — habilite encryption-at-rest no etcd + RBAC restrito). Tipos: Opaque, kubernetes.io/tls, kubernetes.io/dockerconfigjson.",
+   fields:[["type","Opaque · tls · dockerconfigjson"],["data","valores em base64"],["consumo","env / volume (arquivos)"],["proteção","RBAC + encryption at rest"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> Secret
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">db-secret</span>}
+<span class="ky">type:</span> Opaque
+<span class="ky">data:</span>
+  <span class="ky">password:</span> <span class="cm"># base64(s3nha)</span> czNuaGE=`},
+
+  {id:"serviceaccount", cat:"rbac", title:"ServiceAccount", kind:"v1 · ServiceAccount", x:60, y:1150,
+   desc:"Identidade dos Pods/processos para falar com a API do cluster.",
+   api:"v1 · Kind: ServiceAccount",
+   about:"Enquanto usuários humanos vêm de fora, a ServiceAccount é a identidade de cargas dentro do cluster. Um Pod roda sob uma SA e recebe um token (montado automaticamente) para autenticar na API. As permissões vêm de (Cluster)RoleBindings que ligam a SA a Roles.",
+   fields:[["default","toda namespace tem uma"],["token","projetado no Pod (auto)"],["automountServiceAccountToken","true/false"],["usado por","Pod.spec.serviceAccountName"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> ServiceAccount
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">web-sa</span>}`},
+
+  {id:"role", cat:"rbac", title:"Role / ClusterRole", kind:"rbac.authorization.k8s.io/v1", x:360, y:1150,
+   desc:"Conjunto de permissões: verbs sobre resources.",
+   api:"rbac.authorization.k8s.io/v1 · Role / ClusterRole",
+   about:"Define o que pode ser feito: uma lista de regras (apiGroups + resources + verbs como get/list/create/delete). Role é namespaced; ClusterRole vale no cluster inteiro (e para resources cluster-scoped como nodes, PVs).",
+   fields:[["rules[].verbs","get, list, watch, create…"],["rules[].resources","pods, configmaps…"],["Role","escopo: namespace"],["ClusterRole","escopo: cluster"]],
+   yaml:`<span class="ky">kind:</span> Role
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">pod-reader</span>}
+<span class="ky">rules:</span>
+- <span class="ky">apiGroups:</span> [""]
+  <span class="ky">resources:</span> [pods]
+  <span class="ky">verbs:</span> [get, list, watch]`},
+
+  {id:"rolebinding", cat:"rbac", title:"RoleBinding", kind:"rbac.authorization.k8s.io/v1", x:360, y:1250,
+   desc:"Liga uma Role a sujeitos (User, Group ou ServiceAccount).",
+   api:"rbac.authorization.k8s.io/v1 · RoleBinding / ClusterRoleBinding",
+   about:"Conecta permissões (roleRef) a quem as recebe (subjects). RoleBinding concede dentro de uma namespace; ClusterRoleBinding concede no cluster todo. É o passo que efetivamente dá acesso — sem binding, uma Role não faz nada.",
+   fields:[["roleRef","→ Role/ClusterRole"],["subjects","ServiceAccount / User / Group"],["RoleBinding","concede na namespace"],["ClusterRoleBinding","concede no cluster"]],
+   yaml:`<span class="ky">kind:</span> RoleBinding
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">read-pods</span>}
+<span class="ky">roleRef:</span> {<span class="ky">kind:</span> Role, <span class="ky">name:</span> pod-reader}
+<span class="ky">subjects:</span>
+- <span class="ky">kind:</span> ServiceAccount
+  <span class="ky">name:</span> <span class="nm">web-sa</span>`},
+
+  /* ---- Cluster ---- */
+  {id:"controlplane", cat:"cluster", title:"Control Plane", kind:"cérebro do cluster", x:1470, y:720, w:300,
+   desc:"API Server · etcd · Scheduler · Controller Manager.",
+   api:"componentes do control plane",
+   about:"O plano de controle é o cérebro do cluster. Todos os componentes conversam através do API Server, que é a única porta de entrada e o guardião do estado guardado no etcd. O Scheduler decide em qual node cada Pod roda; o Controller Manager roda os loops de reconciliação (é ele que faz Deployment→ReplicaSet→Pod acontecer).",
+   fields:[["kube-apiserver","API REST · hub · autz/autn · admission"],["etcd","banco chave/valor: estado do cluster"],["kube-scheduler","aloca Pods pendentes a nodes"],["kube-controller-manager","loops: replicaset, node, job…"],["cloud-controller-manager","integra LB/volumes da cloud"]],
+   yaml:null},
+
+  {id:"node_a", cat:"cluster", title:"Node (worker)", kind:"v1 · Node", x:760, y:720,
+   desc:"Máquina que roda Pods: kubelet, kube-proxy, container runtime.",
+   api:"v1 · Kind: Node",
+   about:"Um worker (VM ou físico) onde os Pods de fato rodam. Executa o kubelet (fala com o API server, gerencia os Pods do node), o kube-proxy (regras de rede/Service) e o container runtime (containerd/CRI-O). O scheduler coloca Pods aqui conforme recursos e restrições.",
+   fields:[["kubelet","agenda e supervisiona Pods do node"],["kube-proxy","regras de Service (iptables/IPVS/eBPF)"],["container runtime","containerd / CRI-O"],["capacity","cpu, memory, pods"],["taints / labels","controle de agendamento"]],
+   yaml:null},
+
+  {id:"node_b", cat:"cluster", title:"Node (worker)", kind:"v1 · Node", x:1060, y:720,
+   desc:"Outro worker do cluster. Pods são distribuídos entre os nodes.",
+   api:"v1 · Kind: Node",
+   about:"Idêntico em papel ao outro node. O conjunto de nodes forma a capacidade computável do cluster; o scheduler espalha os Pods entre eles conforme requests, afinidades e disponibilidade.",
+   fields:[["mesmos componentes","kubelet · kube-proxy · runtime"],["distribuição","scheduler balanceia Pods"]],
+   yaml:null},
+
+  {id:"nodegroup", cat:"cluster", title:"Node Group", kind:"managed (EKS/AKS/GKE)", x:720, y:880,
+   desc:"Grupo de nodes com mesma config e autoscaling (min/max).",
+   api:"— (recurso da cloud gerenciada)",
+   about:"Não é um objeto nativo do K8s, mas um conceito de clusters gerenciados: um pool de nodes idênticos (tipo de instância, labels, taints) com autoscaling. O Cluster Autoscaler ajusta a contagem entre min e max conforme Pods ficam pendentes por falta de recurso.",
+   fields:[["min / max size","1 / 5"],["instance type","ex.: m5.large"],["autoscaling","Cluster Autoscaler / Karpenter"],["labels/taints","aplicados aos nodes"]],
+   yaml:null},
+
+  {id:"namespace", cat:"cluster", title:"Namespace", kind:"v1 · Namespace", x:1120, y:880,
+   desc:"Partição lógica: escopo de nomes, quotas e RBAC.",
+   api:"v1 · Kind: Namespace",
+   about:"Divide o cluster em ambientes lógicos (times, apps, dev/prod). Dá escopo aos nomes dos recursos, e é onde se aplicam ResourceQuota, LimitRange e RBAC. Padrão: default, kube-system, kube-public. Recursos cluster-scoped (Node, PV, StorageClass, ClusterRole) não pertencem a namespace.",
+   fields:[["padrão","default · kube-system · kube-public"],["governança","ResourceQuota · LimitRange"],["isolamento","RBAC + NetworkPolicy"],["cluster-scoped","Node, PV, StorageClass ficam de fora"]],
+   yaml:`<span class="ky">apiVersion:</span> v1
+<span class="ky">kind:</span> Namespace
+<span class="ky">metadata:</span> {<span class="ky">name:</span> <span class="nm">production</span>}`},
+];
+
+const EDGES = [
+  ["users","ingress","route"],
+  ["ingress","service","route"],
+  ["service","endpointslice","route","gera"],
+  ["endpointslice","pod_web","route","aponta"],
+  ["service","pod_web","route","balanceia"],
+  ["networkpolicy","pod_web","route","protege"],
+
+  ["deployment","replicaset","create"],
+  ["replicaset","pod_web","create"],
+  ["statefulset","pod_db","create"],
+  ["daemonset","pod_agent","create"],
+  ["cronjob","job","create"],
+  ["job","pod_agent","create","(cria Pods)"],
+  ["hpa","deployment","scale"],
+
+  ["configmap","pod_web","inject"],
+  ["secret","pod_web","inject"],
+
+  ["storageclass","pv","mount","provisiona"],
+  ["pvc","pv","mount","bind"],
+  ["pvc","pod_db","mount","montado em"],
+  ["statefulset","pvc","create","volumeClaimTemplate"],
+  ["volume","pod_web","mount"],
+
+  ["pod_web","node_a","run"],
+  ["pod_db","node_b","run"],
+  ["pod_agent","node_a","run"],
+  ["pod_agent","node_b","run"],
+  ["nodegroup","node_a","run","contém"],
+  ["nodegroup","node_b","run","contém"],
+  ["controlplane","node_a","run","gerencia"],
+  ["controlplane","node_b","run","gerencia"],
+
+  ["serviceaccount","pod_web","rbac","identidade"],
+  ["rolebinding","role","rbac","referencia"],
+  ["rolebinding","serviceaccount","rbac","sujeito"],
+
+  ["namespace","service","scope"],
+  ["namespace","serviceaccount","scope"],
+];
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+const world = document.getElementById('world');
+const svg = document.getElementById('edges');
+const byId = {};
+NODES.forEach(n=>byId[n.id]=n);
+
+// zonas
+ZONES.forEach(z=>{
+  const d=document.createElement('div');
+  d.className='zone';
+  d.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px`;
+  d.innerHTML=`<span class="zlabel">${z.label}</span>`;
+  world.appendChild(d);
+});
+
+// nós
+NODES.forEach(n=>{
+  const el=document.createElement('div');
+  el.className='node'; el.id='node-'+n.id; el.dataset.id=n.id; el.dataset.cat=n.cat;
+  el.style.cssText=`left:${n.x}px;top:${n.y}px;width:${n.w||230}px;--cc:${CAT[n.cat].color}`;
+  el.innerHTML=`
+    <div class="nhead"><span class="dot"></span>
+      <div><div class="ntitle">${n.title}</div><div class="nkind">${n.kind}</div></div>
+    </div>
+    <div class="ndesc">${n.desc}</div>`;
+  el.addEventListener('click',e=>{e.stopPropagation();select(n.id);});
+  world.appendChild(el);
+});
+
+// medir e desenhar edges (após layout)
+let EDGE_ELS=[];
+function nodeRect(id){
+  const n=byId[id]; const el=document.getElementById('node-'+id);
+  return {x:n.x, y:n.y, w:el.offsetWidth, h:el.offsetHeight};
+}
+function anchor(r,tx,ty){
+  const cx=r.x+r.w/2, cy=r.y+r.h/2;
+  const dx=tx-cx, dy=ty-cy;
+  if(Math.abs(dx)*r.h > Math.abs(dy)*r.w){ // sai pela lateral
+    return {x: dx>0 ? r.x+r.w : r.x, y: cy, side: dx>0?'r':'l'};
+  } else { // sai por cima/baixo
+    return {x: cx, y: dy>0 ? r.y+r.h : r.y, side: dy>0?'b':'t'};
+  }
+}
+function buildEdges(){
+  svg.innerHTML='';
+  EDGE_ELS=[];
+  // marcadores
+  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  Object.entries(REL).forEach(([k,r])=>{
+    const m=document.createElementNS('http://www.w3.org/2000/svg','marker');
+    m.setAttribute('id','arw-'+k);m.setAttribute('viewBox','0 0 10 10');
+    m.setAttribute('refX','8');m.setAttribute('refY','5');m.setAttribute('markerWidth','7');
+    m.setAttribute('markerHeight','7');m.setAttribute('orient','auto-start-reverse');
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d','M0,0 L10,5 L0,10 z');p.setAttribute('fill',r.color);
+    m.appendChild(p);defs.appendChild(m);
+  });
+  svg.appendChild(defs);
+
+  let maxX=0,maxY=0;
+  NODES.forEach(n=>{const el=document.getElementById('node-'+n.id);maxX=Math.max(maxX,n.x+el.offsetWidth);maxY=Math.max(maxY,n.y+el.offsetHeight);});
+  ZONES.forEach(z=>{maxX=Math.max(maxX,z.x+z.w);maxY=Math.max(maxY,z.y+z.h);});
+  svg.setAttribute('width',maxX+60);svg.setAttribute('height',maxY+60);
+
+  EDGES.forEach(ed=>{
+    const [s,t,type,customLabel]=ed;
+    const rs=nodeRect(s), rt=nodeRect(t);
+    const scx=rs.x+rs.w/2,scy=rs.y+rs.h/2,tcx=rt.x+rt.w/2,tcy=rt.y+rt.h/2;
+    const a=anchor(rs,tcx,tcy), b=anchor(rt,scx,scy);
+    // controle bezier
+    const k=0.45, dist=Math.hypot(b.x-a.x,b.y-a.y);
+    const off=Math.min(120,dist*k);
+    const c1={x:a.x+(a.side==='r'?off:a.side==='l'?-off:0), y:a.y+(a.side==='b'?off:a.side==='t'?-off:0)};
+    const c2={x:b.x+(b.side==='r'?off:b.side==='l'?-off:0), y:b.y+(b.side==='b'?off:b.side==='t'?-off:0)};
+    const dstr=`M${a.x},${a.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${b.x},${b.y}`;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    const r=REL[type];
+    path.setAttribute('d',dstr);path.setAttribute('class','edge');
+    path.setAttribute('stroke',r.color);
+    path.setAttribute('marker-end','url(#arw-'+type+')');
+    if(r.style==='dashed')path.setAttribute('stroke-dasharray','7 5');
+    if(r.style==='dotted')path.setAttribute('stroke-dasharray','2 5');
+    path.dataset.s=s;path.dataset.t=t;path.dataset.type=type;
+    svg.appendChild(path);
+
+    // label
+    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','elabel');g.dataset.s=s;g.dataset.t=t;
+    const txt=customLabel||r.label;
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    const tw=txt.length*6+8;
+    rect.setAttribute('x',mid.x-tw/2);rect.setAttribute('y',mid.y-9);
+    rect.setAttribute('width',tw);rect.setAttribute('height',15);rect.setAttribute('rx',4);
+    const te=document.createElementNS('http://www.w3.org/2000/svg','text');
+    te.setAttribute('x',mid.x);te.setAttribute('y',mid.y+2);te.setAttribute('text-anchor','middle');
+    te.setAttribute('fill',r.color);te.textContent=txt;
+    g.appendChild(rect);g.appendChild(te);svg.appendChild(g);
+
+    EDGE_ELS.push({path,label:g,s,t,type});
+  });
+}
+buildEdges();
+
+/* =====================================================================
+   PAN / ZOOM
+   ===================================================================== */
+const vp=document.getElementById('viewport');
+let scale=1, tx=0, ty=0;
+function apply(){world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;}
+function fit(){
+  const b=svg.getBBox?{width:+svg.getAttribute('width'),height:+svg.getAttribute('height')}:{width:2100,height:1400};
+  const pad=60;
+  const sx=(vp.clientWidth-pad*2)/b.width, sy=(vp.clientHeight-pad*2)/b.height;
+  scale=Math.min(sx,sy,1.1);
+  tx=(vp.clientWidth-b.width*scale)/2;
+  ty=(vp.clientHeight-b.height*scale)/2;
+  apply();
+}
+window.addEventListener('resize',()=>{});
+setTimeout(fit,60);
+
+let dragging=false,sx0,sy0,tx0,ty0,moved=false;
+vp.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.node'))return;
+  dragging=true;moved=false;vp.classList.add('grabbing');
+  sx0=e.clientX;sy0=e.clientY;tx0=tx;ty0=ty;vp.setPointerCapture(e.pointerId);
+});
+vp.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  const dx=e.clientX-sx0,dy=e.clientY-sy0;
+  if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+  tx=tx0+dx;ty=ty0+dy;apply();
+});
+vp.addEventListener('pointerup',e=>{dragging=false;vp.classList.remove('grabbing');});
+vp.addEventListener('click',e=>{if(!e.target.closest('.node')&&!moved)deselect();});
+vp.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rect=vp.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const wx=(mx-tx)/scale,wy=(my-ty)/scale;
+  const f=e.deltaY<0?1.12:1/1.12;
+  scale=Math.min(2.2,Math.max(.25,scale*f));
+  tx=mx-wx*scale;ty=my-wy*scale;apply();
+},{passive:false});
+
+document.getElementById('zin').onclick=()=>zoomBtn(1.2);
+document.getElementById('zout').onclick=()=>zoomBtn(1/1.2);
+document.getElementById('fit').onclick=fit;
+function zoomBtn(f){
+  const cx=vp.clientWidth/2,cy=vp.clientHeight/2;
+  const wx=(cx-tx)/scale,wy=(cy-ty)/scale;
+  scale=Math.min(2.2,Math.max(.25,scale*f));
+  tx=cx-wx*scale;ty=cy-wy*scale;apply();
+}
+
+/* =====================================================================
+   SELEÇÃO + PAINEL
+   ===================================================================== */
+const panel=document.getElementById('panel');
+let selected=null;
+
+function neighbors(id){
+  const set=new Set();
+  EDGES.forEach(([s,t])=>{if(s===id)set.add(t);if(t===id)set.add(s);});
+  return set;
+}
+function select(id){
+  selected=id;
+  const nb=neighbors(id);
+  document.querySelectorAll('.node').forEach(el=>{
+    const nid=el.dataset.id;
+    el.classList.toggle('selected',nid===id);
+    el.classList.toggle('active',nb.has(nid));
+    el.classList.toggle('dim',nid!==id && !nb.has(nid));
+  });
+  EDGE_ELS.forEach(e=>{
+    const on=(e.s===id||e.t===id);
+    e.path.classList.toggle('hi',on);
+    e.path.classList.toggle('dim',!on);
+    e.label.classList.toggle('show',on);
+  });
+  openPanel(id);
+}
+function deselect(){
+  selected=null;
+  document.querySelectorAll('.node').forEach(el=>el.classList.remove('selected','active','dim'));
+  EDGE_ELS.forEach(e=>{e.path.classList.remove('hi','dim');e.label.classList.remove('show');});
+  panel.classList.remove('open');
+}
+document.getElementById('pclose').onclick=deselect;
+
+function relLabelFor(type){return REL[type].label;}
+function openPanel(id){
+  const n=byId[id];
+  panel.classList.add('open');
+  panel.style.setProperty('--pc',CAT[n.cat].color);
+  document.getElementById('ptag').textContent=CAT[n.cat].label;
+  document.getElementById('ptag').style.color=CAT[n.cat].color;
+  document.getElementById('ptitle').textContent=n.title;
+  document.getElementById('papi').textContent=n.api;
+
+  const rels=[];
+  EDGES.forEach(([s,t,type,cl])=>{
+    if(s===id)rels.push({dir:'→',other:t,type,verb:cl||REL[type].label});
+    if(t===id)rels.push({dir:'←',other:s,type,verb:cl||REL[type].label});
+  });
+
+  let html=`<h3>O que é</h3><p class="lead">${n.about}</p>`;
+  if(n.fields&&n.fields.length){
+    html+=`<h3>Campos principais</h3><div class="fields">`;
+    n.fields.forEach(([k,v])=>html+=`<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>`);
+    html+=`</div>`;
+  }
+  if(n.yaml){html+=`<h3>Exemplo (YAML)</h3><pre>${n.yaml}</pre>`;}
+  if(rels.length){
+    html+=`<h3>Relações</h3><div class="rels">`;
+    rels.forEach(r=>{
+      const o=byId[r.other];
+      html+=`<div class="rel" style="--rc:${REL[r.type].color}" data-go="${r.other}">
+        <span class="rarrow">${r.dir}</span>
+        <span class="rname">${o.title}</span>
+        <span class="rverb">${r.verb}</span></div>`;
+    });
+    html+=`</div>`;
+  }
+  const body=document.getElementById('pbody');
+  body.innerHTML=html;body.scrollTop=0;
+  body.querySelectorAll('.rel').forEach(r=>r.onclick=()=>{focusNode(r.dataset.go);select(r.dataset.go);});
+}
+
+function focusNode(id){
+  const n=byId[id];const el=document.getElementById('node-'+id);
+  const cx=n.x+el.offsetWidth/2, cy=n.y+el.offsetHeight/2;
+  scale=Math.max(scale,.75);
+  const availW=vp.clientWidth-(window.innerWidth>640?440:0);
+  tx=availW/2 - cx*scale; ty=vp.clientHeight/2 - cy*scale; apply();
+}
+
+/* =====================================================================
+   BUSCA
+   ===================================================================== */
+const q=document.getElementById('q'), results=document.getElementById('results');
+q.addEventListener('input',()=>{
+  const v=q.value.trim().toLowerCase();
+  if(!v){results.classList.remove('show');return;}
+  const hits=NODES.filter(n=>(n.title+' '+n.kind+' '+n.desc).toLowerCase().includes(v)).slice(0,8);
+  results.innerHTML=hits.map(n=>`<button data-id="${n.id}">${n.title}<span class="cat">${CAT[n.cat].label}</span></button>`).join('')||'<button disabled style="color:#5a6a86">nada encontrado</button>';
+  results.classList.add('show');
+  results.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>{
+    results.classList.remove('show');q.value='';focusNode(b.dataset.id);select(b.dataset.id);
+  });
+});
+document.addEventListener('click',e=>{if(!e.target.closest('.search'))results.classList.remove('show');});
+
+/* =====================================================================
+   LEGENDA
+   ===================================================================== */
+const relLeg=document.getElementById('rel-legend');
+Object.entries(REL).forEach(([k,r])=>{
+  const d=document.createElement('div');
+  d.className='lg '+r.style;d.style.setProperty('--lc',r.color);d.dataset.type=k;
+  d.innerHTML=`<span class="sw"></span>${r.label}`;
+  d.onmouseenter=()=>hiType(k);d.onmouseleave=()=>{if(!selected)clearHi();};
+  relLeg.appendChild(d);
+});
+const catLeg=document.getElementById('cat-legend');
+Object.entries(CAT).forEach(([k,c])=>{
+  const d=document.createElement('div');
+  d.className='lg';d.style.setProperty('--lc',c.color);
+  d.innerHTML=`<span class="cbox"></span>${c.label}`;
+  d.onmouseenter=()=>hiCat(k);d.onmouseleave=()=>{if(!selected)clearHi();};
+  catLeg.appendChild(d);
+});
+function hiType(type){
+  EDGE_ELS.forEach(e=>{e.path.classList.toggle('hi',e.type===type);e.path.classList.toggle('dim',e.type!==type);e.label.classList.toggle('show',e.type===type);});
+}
+function hiCat(cat){
+  document.querySelectorAll('.node').forEach(el=>el.classList.toggle('dim',el.dataset.cat!==cat));
+}
+function clearHi(){
+  document.querySelectorAll('.node').forEach(el=>el.classList.remove('dim'));
+  EDGE_ELS.forEach(e=>{e.path.classList.remove('hi','dim');e.label.classList.remove('show');});
+  if(selected)select(selected);
+}
+document.getElementById('mztoggle').onclick=e=>{
+  e.stopPropagation();document.getElementById('legend').classList.toggle('min');
+  e.target.textContent=document.getElementById('legend').classList.contains('min')?'▸':'▾';
+};
+
+// esc fecha
+document.addEventListener('keydown',e=>{if(e.key==='Escape')deselect();});
+</script>
+</body>
+</html>
