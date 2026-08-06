@@ -1,0 +1,62 @@
+# =====================================================================
+# SEÇÃO 1 — IDENTIDADE DO DAEMONSET (o objeto em si)
+# =====================================================================
+apiVersion: apps/v1              # grupo/versão da API onde vive o DaemonSet
+kind: DaemonSet                  # tipo do objeto: um Pod por nó
+metadata:
+  labels:
+    app: node-exporter-daemonset # label DO DaemonSet (identificação do objeto)
+  name: node-exporter-daemonset  # nome do DaemonSet no cluster
+
+spec:
+  # ===================================================================
+  # SEÇÃO 2 — SELECTOR (o vínculo DaemonSet -> Pods)
+  # ===================================================================
+  selector:
+    matchLabels:
+      app: node-exporter-daemonset  # procura Pods com esta label
+                                     # PRECISA casar com o template abaixo
+
+  # ===================================================================
+  # SEÇÃO 3 — TEMPLATE + REDE DO POD (o molde de cada Pod)
+  # ===================================================================
+  template:
+    metadata:
+      labels:
+        app: node-exporter-daemonset  # label do Pod — CASA com o selector acima
+    spec:
+      hostNetwork: true          # o Pod usa a rede do NÓ diretamente,
+                                 # não a rede isolada do Pod. necessário para
+                                 # o exporter enxergar as interfaces reais do host
+
+      # =================================================================
+      # SEÇÃO 4 — CONTAINER (o node-exporter em si)
+      # =================================================================
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter  # imagem oficial do exporter
+
+        # -- porta --
+        ports:
+        - containerPort: 9100    # porta exposta dentro do container
+          hostPort: 9100         # mapeada na porta 9100 do NÓ (Prometheus raspa aqui)
+
+        # -- montagem dos diretórios do host DENTRO do container (só leitura) --
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc  # /proc do host aparece aqui dentro
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys   # /sys do host aparece aqui dentro
+          readOnly: true
+
+      # =================================================================
+      # SEÇÃO 5 — VOLUMES (os diretórios reais do nó)
+      # =================================================================
+      volumes:                   # sob template.spec, mesmo nível de "containers"
+      - name: proc
+        hostPath:
+          path: /proc            # diretório real /proc do nó
+      - name: sys
+        hostPath:
+          path: /sys             # diretório real /sys do nó
