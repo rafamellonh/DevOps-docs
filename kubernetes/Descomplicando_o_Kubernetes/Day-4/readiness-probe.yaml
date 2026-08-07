@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-webserver
+  name: nginx-webserver
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-webserver
+  template:
+    metadata:
+      labels:
+        app: nginx-webserver
+    spec:
+      containers: 
+      - name: nginx-webserver
+        image: nginx
+        resources:
+          limits:
+            cpu: 100m
+            memory: "128Mi"      
+          requests:
+            cpu: 100m
+            memory: "128Mi" 
+        livenessProbe:  
+          tcpSocket: 
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - f
+            - http://localhost:80/    
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+    
+  
