@@ -1,0 +1,16 @@
+name: First WorkFlow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  job-mello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Ubuntu Version
+        run: cat /etc/os-release
+
+      - name: Show message
+        run: echo "Hello - I am Rafael"
