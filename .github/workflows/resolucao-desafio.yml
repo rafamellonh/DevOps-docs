@@ -1,0 +1,32 @@
+name:
+  workflow_dispatch:
+    inputs:
+      valideImagemDocker:
+        description: 'Validacao da imagem escolhida'
+          required: false
+          default: 'nginx:latest'
+          type: string
+
+jobs: 
+  pipeline-seguranca:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Baixa a imagem do container
+        run: |
+          docker pull ${{ github.event.inputs.validaImagemDocker }}
+
+      - name: Leitura da imagem
+        run: |
+          IMAGE_NAME=$(echo "${{ github.event.inputs.validaImagemDocker }}" | cut -d ':' -f 1)
+          docker images | grep $IMAGE_NAME
+    
+      - name: Scan com o Docker Scout
+        uses: actions/scout-action@v1
+        with:
+          image: ${{ github.event.inputs.validaImagemDocker }}
+          only-severities: critical, high
+    
