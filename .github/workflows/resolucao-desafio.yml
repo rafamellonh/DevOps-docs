@@ -30,12 +30,12 @@ jobs:
       - name: Leitura da imagem
         run: |
           IMAGE_NAME=$(echo "${{ github.event.inputs.validaImagemDocker }}" | cut -d ':' -f 1)
-          docker images | grep $IMAGE_NAME
+          docker images | grep "$IMAGE_NAME"
     
       - name: Scan com o Docker Scout
         uses: docker/scout-action@v1
         with:
           command: cves
           image: ${{ github.event.inputs.validaImagemDocker }}
-          only-severities: critical, high
+          only-severities: critical,high
     
