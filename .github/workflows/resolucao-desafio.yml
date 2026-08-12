@@ -3,11 +3,11 @@ name: Valide Imagem de container
 on:
   workflow_dispatch:
     inputs:
-      valideImageDocker:
-        description: 'Validacao da imagem escolhida'
-          required: false
-          default: 'nginx:latest'
-          type: string
+      validaImagemDocker:
+    #description: 'Validacao da imagem escolhida'
+        required: false
+        default: 'nginx:latest'
+        type: string
 
 jobs: 
   pipeline-seguranca:
