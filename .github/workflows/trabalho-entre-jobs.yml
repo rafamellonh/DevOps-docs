@@ -1,0 +1,39 @@
+name: vienwing shared files up to the steps
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  job_1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Ubuntu Version
+        run: cat /etc/os-release
+
+      - name: Show message
+        run: echo "Hello - I am Rafael" > message.txt
+
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mello
+          path: /home/ubuntu/message.txt 
+  
+  job_2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check content folder
+        run: ls -lha 
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Mello
+          path: message.txt 
+      
+      - name: Access the message file
+        run: mv mello/message.txt && rm -rf ./mello
+
+      - name: Access the message file
+        run: cat message.txt 
