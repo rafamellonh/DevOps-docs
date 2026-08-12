@@ -1,4 +1,4 @@
-name: First WorkFlow
+name: vienwing shared files up to the steps
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  job-mello:
+  entre-steps:
     runs-on: ubuntu-latest
     steps:
       - name: Check Ubuntu Version
