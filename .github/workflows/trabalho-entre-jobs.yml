@@ -13,16 +13,17 @@ jobs:
         run: cat /etc/os-release
 
       - name: Show message
-        run: echo "Hello - I am Rafael" > message.txt
+        run: echo "Hello - I am Rafael" > ${{ github.workspace }}/message.txt
 
       
       - uses: actions/upload-artifact@v4
         with:
           name: Mello
-          path: /home/ubuntu/message.txt 
+          path: ${{ github.workspace }}/message.txt
   
   job_2:
     runs-on: ubuntu-latest
+    needs: job_1
     steps:
       - name: check content folder
         run: ls -lha 
