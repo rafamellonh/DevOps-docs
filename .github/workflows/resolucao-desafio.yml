@@ -1,4 +1,6 @@
-name:
+name: Valide Imagem de container
+
+on:
   workflow_dispatch:
     inputs:
       valideImagemDocker:
