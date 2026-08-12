@@ -1,11 +1,15 @@
 name: viewing shared files up to the steps
 
+<<<<<<< HEAD
+=======
   on:
     workflow_dispatch:
+>>>>>>> 88ed81f23ab1585f1a6f2313391c7f666f276b7c
 
 jobs:
   entre-steps:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check Ubuntu Version
         run: cat /etc/os-release
