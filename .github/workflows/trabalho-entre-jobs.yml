@@ -18,7 +18,7 @@ jobs:
       
       - uses: actions/upload-artifact@v4
         with:
-          name: Mello
+          name: Mello-upload
           path: ${{ github.workspace }}/message.txt
   
   job_2:
@@ -30,7 +30,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: Mello
+          name: Mello-download
           path: message.txt 
       
       - name: Access the message file
