@@ -19,9 +19,6 @@ jobs:
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-        
-      - name: Checkout
-        uses: docker/scout-action@v1
 
       - name: Baixa a imagem do container
         run: |
