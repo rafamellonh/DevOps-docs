@@ -1,9 +1,5 @@
 name: viewing shared files up to the steps
 
-on:
-  #push:
-  #  branches:
-  #    - main
   on:
     workflow_dispatch:
 
