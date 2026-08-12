@@ -1,1 +1,1 @@
-#### Using vscdeo.dev
+#### Using vscode.dev
