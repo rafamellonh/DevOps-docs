@@ -3,7 +3,7 @@ name: Valide Imagem de container
 on:
   workflow_dispatch:
     inputs:
-      valideImagemDocker:
+      valideImageDocker:
         description: 'Validacao da imagem escolhida'
           required: false
           default: 'nginx:latest'
