@@ -30,11 +30,11 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: Mello-download
-          path: message.txt 
+          name: Mello-upload
+          path: .
       
       - name: Access the message file
-        run: mv mello/message.txt && rm -rf ./mello
-
-      - name: Access the message file
         run: cat message.txt 
+
+      - name: Delete message file
+        run: rm message.txt && ls -lha
