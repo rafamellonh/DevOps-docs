@@ -7,7 +7,6 @@ on:
 jobs:
   print-modification:
     runs-on: ubuntu-latest
-    steps:
       - steps:
           - name: Avisa sobre a modificacao
             run: echo "Este workflow foi triggado pois uma regra de branch protection rule foi acionada"
