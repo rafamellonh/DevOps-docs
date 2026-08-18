@@ -1,0 +1,12 @@
+name: Avisa sobre a trigger schedule
+
+on:
+  schedule:
+    - cron: '20 17 * * *'
+
+jobs:
+  execute-schedule:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avisa sobre a trigger schedule
+        run: echo "Este workflow foi triggado usando um schedule"
