@@ -9,7 +9,7 @@ on:
       - 'main/**'
 
 jobs:
-  job-Pull-Request:
+  job-pull-request:
     runs-on: ubuntu-latest
     steps:
       - name: Printa o deployment
