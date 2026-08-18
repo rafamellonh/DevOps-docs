@@ -13,6 +13,5 @@ jobs:
         if: github.event.schedule == '45 17 * * *'
         run: echo "Este workflow foi triggado usando um schedule"
 
-      - name: Avisa sobre a trigger schedule
-        run: echo "Este step passam todos os crons, agora sao $(date) UTC"   
-      
+      - name: Avisa sobre a trigger schedule de sexta
+        run: echo "Este step passam todos os crons, agora sao $(date) UTC"
