@@ -2,11 +2,17 @@ name: Avisa sobre a trigger schedule
 
 on:
   schedule:
-    - cron: '30 17 * * *'
+    - cron: '45 17 * * *'
+    - cron: '*/5 * * * 5'
 
 jobs:
   execute-schedule:
     runs-on: ubuntu-latest
     steps:
       - name: Avisa sobre a trigger schedule
+        if: github.event.schedule == '45 17 * * *'
         run: echo "Este workflow foi triggado usando um schedule"
+
+      - name: Avisa sobre a trigger schedule
+        run: echo "Este step passam todos os crons, agora sao $(date) UTC"   
+      
