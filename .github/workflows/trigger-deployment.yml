@@ -8,4 +8,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Printa o deployment
-        run: Esse job foi triggado por um deployment externo
+        run: echo "Esse job foi triggado por um deployment externo"
