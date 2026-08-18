@@ -1,12 +1,11 @@
-name: testando a regra de protection rule
+name: Avisa sobre a criacao ou tag
 
 on:
-  branch_protection_rule:
-    types: [created, edited, deleted]
+  create
 
 jobs:
   print-modification:
     runs-on: ubuntu-latest
     steps:
-      - name: Avisa sobre a modificacao 01
+      - name: Avisa sobre a criacao ou tag
         run: echo "Este workflow foi triggado pois uma regra de branch protection rule foi acionada"
