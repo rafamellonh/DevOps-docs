@@ -1,0 +1,14 @@
+name: Criando o trigger Pull Request
+
+on:
+  pull_request:
+    types: [opened, edited, deleted, reopened]
+  branches:
+    - 'main/**'
+
+jobs:
+  job-Pull-Request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Printa o deployment
+        run: echo "Uma pull resquest foi aberta"
