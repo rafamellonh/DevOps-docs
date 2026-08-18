@@ -1,0 +1,12 @@
+name: Criando o trigger discussion
+
+on:
+  discussion:
+    types: [created, edited, answered]
+
+jobs:
+  job-discussion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Printa o discussion 
+        run: echo "Esse job foi triggado por uma discussion"
