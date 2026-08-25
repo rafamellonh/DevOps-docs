@@ -1,0 +1,88 @@
+# =====================================================================
+# SEÇÃO 1 — IDENTIDADE DO DEPLOYMENT (o objeto em si)
+# =====================================================================
+apiVersion: apps/v1              # grupo/versão da API onde vive o Deployment
+kind: Deployment                 # tipo do objeto: gerencia N réplicas de um Pod
+metadata:
+  labels:
+    app: nginx-webserver         # label DO Deployment (identificação do objeto)
+  name: nginx-webserver          # nome do Deployment no cluster
+
+spec:
+  # ===================================================================
+  # SEÇÃO 2 — RÉPLICAS + SELECTOR (quantos Pods e o vínculo com eles)
+  # ===================================================================
+  replicas: 3                    # nº de Pods idênticos que devem existir sempre
+  selector:
+    matchLabels:
+      app: nginx-webserver       # procura Pods com esta label para gerenciar
+                                 # PRECISA casar com o template abaixo
+
+  # ===================================================================
+  # SEÇÃO 3 — TEMPLATE (o molde de cada Pod)
+  # ===================================================================
+  template:
+    metadata:
+      labels:
+        app: nginx-webserver     # label do Pod — CASA com o selector acima
+    spec:
+
+      # =================================================================
+      # SEÇÃO 4 — CONTAINER (o nginx em si)
+      # =================================================================
+      containers:
+      - name: nginx-webserver
+        image: nginx:1.27        # imagem oficial (tag fixa = deploy reproduzível)
+
+        # -- porta --
+        ports:
+        - containerPort: 80      # porta que o nginx escuta dentro do container
+
+        # ---------------------------------------------------------------
+        # SEÇÃO 5 — RECURSOS (reserva e teto de CPU/memória)
+        # ---------------------------------------------------------------
+        resources:
+          requests:              # RESERVA — garantido; o scheduler usa p/ alocar
+            cpu: 100m            # 100m = 0,1 núcleo
+            memory: "128Mi"      # 128 mebibytes (base 2)
+          limits:                # TETO — máximo permitido
+            cpu: 100m            # acima disso: CPU é "throttled" (afinada)
+            memory: "128Mi"      # acima disso: container é morto (OOMKilled)
+                                 # requests == limits => QoS "Guaranteed" (mais estável)
+
+        # ---------------------------------------------------------------
+        # SEÇÃO 6 — STARTUP PROBE ("o app JÁ SUBIU?")
+        # roda primeiro; enquanto não passa, liveness e readiness ficam suspensos
+        # ---------------------------------------------------------------
+        startupProbe:
+          tcpSocket:             # sucesso = porta 80 aceita conexão TCP
+            port: 80
+          periodSeconds: 10      # checa a cada 10s
+          timeoutSeconds: 5      # espera no máx. 5s pela resposta
+          failureThreshold: 30   # tolera 30 falhas (~5 min) antes de reiniciar
+
+        # ---------------------------------------------------------------
+        # SEÇÃO 7 — LIVENESS PROBE ("o app AINDA está vivo?")
+        # se falhar => REINICIA o container
+        # ---------------------------------------------------------------
+        livenessProbe:
+          tcpSocket:             # sucesso = porta 80 aceita conexão TCP
+            port: 80
+          initialDelaySeconds: 10 # espera 10s após o container iniciar
+          periodSeconds: 10       # checa a cada 10s
+          timeoutSeconds: 5       # espera no máx. 5s pela resposta
+          failureThreshold: 3     # 3 falhas seguidas => reinicia
+
+        # ---------------------------------------------------------------
+        # SEÇÃO 8 — READINESS PROBE ("está PRONTO p/ receber tráfego?")
+        # se falhar => tira o Pod dos endpoints do Service (NÃO reinicia)
+        # ---------------------------------------------------------------
+        readinessProbe:
+          httpGet:               # kubelet faz um GET HTTP sozinho (não precisa
+            path: /              # de curl na imagem). sucesso = HTTP 2xx/3xx
+            port: 80
+          initialDelaySeconds: 10 # espera 10s após o container iniciar
+          periodSeconds: 10       # checa a cada 10s
+          timeoutSeconds: 5       # espera no máx. 5s pela resposta
+          failureThreshold: 3     # 3 falhas => sai do tráfego
+          successThreshold: 1     # 1 sucesso => volta ao tráfego
