@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Pod
+kind: Deployment
 metadata:
   labels:
     app: web
@@ -17,15 +17,26 @@ spec:
         app: web
     spec:
       containers:
-      -  name: pod-webserver
+      -  name: webserver
          image: nginx
-      ports:
-        containerPort: 80
-      
+         ports:
+         -  containerPort: 80
+         resources:
+          requests:
+            cpu: 100m
+            memory: "128Mi"
+          limits:
+            cpu: 100m
+            memory: "245Mi"
+
+      - name: node
+        image: prom/node-exporter
+        ports:
+        - containerPort: 3000
         resources:
-         requests:
-           cpu: 0.5
-           memory: "128Mi"
-        limits:
-          cpu: 1
-          memory: "245Mi"
+          requests:
+            cpu: 100m
+            memory: "128Mi"
+          limits:
+            cpu: 100m
+            memory: "245Mi"
