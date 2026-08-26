@@ -21,6 +21,7 @@ spec:
          image: nginx
          ports:
          -  containerPort: 80
+            name: http
          resources:
           requests:
             cpu: 100m
@@ -28,11 +29,31 @@ spec:
           limits:
             cpu: 100m
             memory: "245Mi"
+         startupProbe:
+           tcpSocket:
+             port: 80
+           periodSeconds: 10
+           timeoutSeconds: 5
+           failureThreshold: 5
+         livenessProbe:
+           tcpSocket:
+             port: 80 
+           periodSeconds: 10
+           timeoutSeconds: 5 
+           failureThreshold: 5
+         readinessProbe:
+           httpGet:
+            path: /
+            port: 80 
+           periodSeconds: 10
+           timeoutSeconds: 5
+           failureThreshold: 3
 
       - name: node
         image: prom/node-exporter
         ports:
-        - containerPort: 3000
+        - containerPort: 9100
+          name: metrics
         resources:
           requests:
             cpu: 100m
@@ -40,3 +61,29 @@ spec:
           limits:
             cpu: 100m
             memory: "245Mi"
+        startupProbe:
+           tcpSocket:
+             port: 9100
+           periodSeconds: 10
+           timeoutSeconds: 5
+           failureThreshold: 5
+        livenessProbe:
+          tcpSocket:
+            port: 9100
+          periodSeconds: 10
+          timeoutSeconds: 5 
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+           path: /metrics
+           port: 9100 
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+
+
+
+
+
+
