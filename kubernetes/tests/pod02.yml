@@ -62,11 +62,11 @@ spec:
             cpu: 100m
             memory: "245Mi"
         startupProbe:
-           tcpSocket:
-             port: 9100
-           periodSeconds: 10
-           timeoutSeconds: 5
-           failureThreshold: 5
+          tcpSocket:
+            port: 9100
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
         livenessProbe:
           tcpSocket:
             port: 9100
