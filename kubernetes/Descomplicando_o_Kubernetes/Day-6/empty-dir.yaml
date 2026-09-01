@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: empty-dir-pod
+  name: empty-dir-pod
+spec:
+  containers:
+    - name: empty-dir-container
+      image: nginx
+      volumeMounts:
+      - name: empty-dir-volume
+        mountPath: /usr/share/nginx/html/
+      ports:
+      - containerPort: 80
+  volumes:
+    - name: empty-dir-volume
+      emptyDir:
+        sizeLimit: "1Gi"  # Limite de tamanho do volume (opcional)
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort
+  selector:
+    app: empty-dir-pod
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30000
