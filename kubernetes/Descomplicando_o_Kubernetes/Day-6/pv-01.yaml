@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    type: local
+  name: persistentvolume-01
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: storageclass-01
+  hostPath:
+    path: /mnt/data
