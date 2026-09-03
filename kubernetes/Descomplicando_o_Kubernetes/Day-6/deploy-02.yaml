@@ -1,0 +1,87 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: sc-02
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    type: local
+  name: pv-02
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data
+  storageClassName: sc-02
+  
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-02
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: sc-02
+  selector:
+    matchLabels:
+      type: local
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-deployment-02
+  name: nginx-deployment-02
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: nginx-deployment-02
+  template:
+   metadata:
+     labels:
+       app: nginx-deployment-02
+   spec:
+     containers:
+       - name: nginx
+         image: nginx
+         ports:
+           - containerPort: 80
+         volumeMounts:
+           - mountPath: /usr/share/nginx/html
+             name: dados  
+     volumes:
+       - name: dados
+         persistentVolumeClaim:
+           claimName: pvc-02
+  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service-02
+spec:
+  type: NodePort
+  selector:
+    app: nginx-deployment-02
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30000

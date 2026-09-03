@@ -1,0 +1,72 @@
+apiVersion: storage.k8s.io/v1        # StorageClass vive na API storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: storageclass-1               # nome referenciado por PV e PVC (têm que bater)
+provisioner: kubernetes.io/no-provisioner   # não provisiona nada: modo estático, PV criado à mão
+volumeBindingMode: WaitForFirstConsumer     # adia o bind PV↔PVC até um Pod consumir o claim
+---
+apiVersion: v1                       # PV fica na API core "v1"
+kind: PersistentVolume
+metadata:
+  name: persistentvolume-1           # nome do PV (minúsculo, RFC 1123)
+spec:
+  capacity:
+    storage: 5Gi                     # tamanho do volume; deve ser >= o pedido no PVC
+  accessModes:
+    - ReadWriteOnce                  # monta em UM nó por vez (leitura+escrita)
+  storageClassName: storageclass-1   # casa com a StorageClass acima
+  hostPath:
+    path: /mnt/data                  # caminho no nó (só p/ lab; em prod usa local/nfs/csi)
+---
+apiVersion: v1                       # PVC também na API core "v1"
+kind: PersistentVolumeClaim
+metadata:
+  name: persistentvolumeclaim-1      # nome referenciado pelo Deployment
+spec:
+  accessModes:
+    - ReadWriteOnce                  # tem que ser compatível com o accessMode do PV
+  storageClassName: storageclass-1   # mesma StorageClass: é assim que acha o PV certo
+  resources:
+    requests:
+      storage: 5Gi                   # pedido; o PV precisa ter capacidade >= isto
+---
+apiVersion: apps/v1                  # Deployment na API apps/v1 (NÃO em v1)
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 1                        # 1 réplica: seguro com RWO. Aumentar exige mesmo nó ou RWX
+  selector:
+    matchLabels:
+      app: nginx-app                 # o Deployment adota Pods com este label...
+  template:
+    metadata:
+      labels:
+        app: nginx-app               # ...e o template gera Pods com ele (deve casar acima)
+    spec:
+      containers:
+        - name: nginx
+          image: nginx               # sem tag = :latest (em lab ok; em prod fixe a versão)
+          ports:
+            - containerPort: 80       # porta do nginx dentro do Pod
+          volumeMounts:
+            - name: dados             # referencia o volume declarado abaixo
+              mountPath: /usr/share/nginx/html/   # onde o volume aparece no container
+      volumes:
+        - name: dados                 # nome do volume (casa com o volumeMount)
+          persistentVolumeClaim:
+            claimName: persistentvolumeclaim-1    # monta o PVC (precisa estar Bound)
+---
+apiVersion: v1                       # Service na API core "v1"
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort                     # expõe o Service numa porta de cada nó
+  selector:
+    app: nginx-app                   # roteia p/ Pods com este label (o mesmo do template)
+  ports:
+    - protocol: TCP
+      port: 80                       # porta do Service dentro do cluster (ClusterIP)
+      targetPort: 80                 # porta do container p/ onde encaminha
+      nodePort: 30000                # porta externa no nó (faixa padrão 30000-32767)
