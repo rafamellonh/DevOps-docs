@@ -1,0 +1,8 @@
+terraform state list              # lista todos os recursos no state
+terraform state show <recurso>    # mostra detalhes de um recurso
+terraform show                    # mostra o state completo (legível)
+terraform plan                    # compara o state com o desejado
+terraform output                  # mostra os outputs salvos no state
+
+
+terraform plan -out=plano
