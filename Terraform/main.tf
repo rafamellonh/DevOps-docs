@@ -59,6 +59,7 @@ resource "aws_instance" "ubuntu_west1" {
 
 
 
+## Outputs
 output "instance_id_west2" {
   value = aws_instance.ubuntu_west2.id
 }
