@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: giropops-tls
+  annotations:
+    cert-manager.io/cluster-issuer: "selfsigned"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - giropops.nginx.io
+    secretName: giropops-nginx-io
+  rules:
+  - host: giropops.nginx.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: giropops-senhas
+            port:
+              number: 5000

@@ -1,0 +1,25 @@
+# Para uso em cluster exposto à internet (AKS/EKS) com domínio próprio.
+# O desafio HTTP-01 do Let's Encrypt precisa alcançar o domínio na porta 80.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: giropops-senhas
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - giropops.nginx.io
+    secretName: giropops-nginx-io
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: giropops-senhas
+            port:
+              number: 5000
