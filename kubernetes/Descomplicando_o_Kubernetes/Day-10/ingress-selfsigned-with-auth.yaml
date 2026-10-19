@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: giropops-tls
+  annotations:
+    cert-manager.io/cluster-issuer: "selfsigned"
+    nginx.ingress.kubernetes.io/auth-type: "basic"
+    nginx.ingress.kubernetes.io/auth-secret: "giropops-senhas-users"
+    nginx.ingress.kubernetes.io/auth-realm: "autenticacao necessaria"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - giropops.nginx.io
+    secretName: giropops-nginx-io
+  rules:
+  - host: giropops.nginx.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: giropops-senhas
+            port:
+              number: 5000

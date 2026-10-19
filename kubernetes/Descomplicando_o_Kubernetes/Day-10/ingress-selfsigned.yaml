@@ -4,6 +4,15 @@ metadata:
   name: giropops-tls
   annotations:
     cert-manager.io/cluster-issuer: "selfsigned"
+    #nginx.ingress.kubernetes.io/auth-type: "basic"
+    #nginx.ingress.kubernetes.io/auth-secret: "giropops-senhas-users"
+    #nginx.ingress.kubernetes.io/auth-realm: "autenticacao necessaria"
+    #nginx.ingress.kubernetes.io/affinity: "cookie"
+    #nginx.ingress.kubernetes.io/session-cookie-name: "giropops-cookie"
+    #nginx.ingress.kubernetes.io/upstream-hash-by: "$request_url"
+#    nginx.ingress.kubernetes.io/canary: "true"
+#    nginx.ingress.kubernetes.io/canary-weight: "50"
+spec:
 spec:
   ingressClassName: nginx
   tls:
