@@ -1,0 +1,50 @@
+openssl genrsa -out developer.key 2048
+openssl req -new -key developer.key -out developer.csr -subj "/CN=developer"
+cat developer.csr | base64 | tr -d '\n'
+
+cat developer.csr | base64 | tr -d '\n'
+kubectl get csr
+kubectl describe csr developer
+kubectl certificate approve developer
+kubectl get csr
+kubectl get csr developer -o jsonpath='{.status.certificate}' | base64 --decode > developer.crt
+cat developer.crt
+kubectl api-resources
+kubectl api-resources | grep pods
+kubectl api-resources --namespaced=false
+kubectl api-resources -o wide
+kubectl describe rolebinding DeveloperRoleBinding -n dev
+kubectl config set-credentials developer --client-certificate=developer.crt --client-key=developer.key --embed-certs=true
+kubectl config set-context developer --cluster=NOME-DO-CLUSTER --namespace=dev --user=developer
+
+# Contextos
+kubectl config get-contexts
+kubectl config current-context
+kubectl config use-context <contexto>
+kubectl config set-context <contexto> --cluster=<cluster> --namespace=<ns> --user=<user>
+kubectl config delete-context <contexto>
+kubectl config rename-context <antigo> <novo>
+
+# Usuários e clusters
+kubectl config get-users
+kubectl config get-clusters
+kubectl config set-credentials <user> --client-certificate=<user>.crt --client-key=<user>.key --embed-certs=true
+kubectl config delete-user <user>
+
+# Executar com outro contexto sem trocar
+kubectl --context <contexto> get pods -n <ns>
+
+# Testar permissões (como admin)
+kubectl auth can-i list pods -n <ns> --as <user>
+kubectl auth can-i delete deployments -n <ns> --as <user>
+kubectl auth can-i --list -n <ns> --as <user>
+
+# Certificado
+openssl genrsa -out <user>.key 2048
+openssl req -new -key <user>.key -out <user>.csr -subj "/CN=<user>/O=<grupo>"
+openssl x509 -in <user>.crt -noout -subject
+
+# RBAC
+kubectl get roles,rolebindings -n <ns>
+kubectl describe rolebinding <nome> -n <ns>
+kubectl get clusterrolebindings

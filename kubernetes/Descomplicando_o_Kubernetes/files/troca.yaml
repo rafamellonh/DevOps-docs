@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: troca-arquivos
+  name: troca-arquivos
+spec:
+  containers:
+  - image: busybox
+    name: escritor
+    command:  [ "/bin/sh", "-c", "while true; do date >> /dados/log.txt; sleep 5; done" ]
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    volumeMounts:
+      - name: arquivos
+        mountPath: /dados
+
+  - image: busybox
+    name: leitor
+    command : [ "/bin/sh", "-c", "tail -f /dados/log.txt " ]
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    volumeMounts:
+      - name: arquivos
+        mountPath: /dados
+
+  volumes:
+    - name: arquivos
+      emptyDir:
+        sizeLimit: 500Mi  

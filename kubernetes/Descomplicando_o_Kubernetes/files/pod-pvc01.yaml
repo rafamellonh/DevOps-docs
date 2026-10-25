@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: nginx
+  name: pod-storage
+spec:
+  containers:
+  - image: nginx
+    name: app
+    volumeMounts:
+    - name: meu-volume
+      mountPath: /dados
+
+  volumes:
+  - name: meu-volume
+    persistentVolumeClaim:
+      claimName: pvc01

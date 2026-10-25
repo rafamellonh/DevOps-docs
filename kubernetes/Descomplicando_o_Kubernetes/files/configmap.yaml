@@ -1,0 +1,24 @@
+apiVersion: v1
+data:
+  nginx.conf: | 
+    events {}
+  
+    http {
+      server {
+        listen 80;
+        listen 443 ssl;
+    
+        ssl_certificate /etc/nginx/tls/certificado-secret.crt;
+        ssl_certificate_key /etc/nginx/tls/chave-privada-secret.key;
+
+        location / {
+          default_type text/plain;
+          return 200 'Ola pessoal';
+        }
+      }  
+    }
+
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: default
