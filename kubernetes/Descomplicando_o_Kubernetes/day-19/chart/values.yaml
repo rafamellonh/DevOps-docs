@@ -1,0 +1,37 @@
+giropopsSenhas:
+  name: "giropops-senhas-helm"
+  image: "linuxtips/giropops-senhas:1.0"
+  replicas: "3" 
+  labels:
+    app: "giropops-senhas"
+  service:
+    name: "giropops-senhas-svc"
+    type: "ClusterIP"
+    port: 5000
+    targetPort: 5000
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "250m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m" 
+
+redis:
+  name: "redis-helm"
+  image: "redis"
+  replicas: "1"
+  labels:
+    app: "redis"
+  service:
+    name: "redis-svc"
+    type: "ClusterIP"
+    port: 6379
+    targetPort: 6379
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "250m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m" 
