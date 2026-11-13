@@ -1,4 +1,4 @@
 resource "aws_key_pair" "vm" {
-  key_name   = "vm-key-lab"
-  public_key = file("${path.module}/ssh-key/vm-lab.pub")
+  key_name   = "vm-lab-key"
+  public_key = file(pathexpand("~/.ssh/id_ed25519.pub"))
 }
